@@ -13,12 +13,47 @@
 
 ## 技術スタック
 
-- **Framework**: Expo v54 + React Native
-- **言語**: TypeScript
-- **ナビゲーション**: expo-router
-- **データベース**: expo-sqlite (ローカルストレージ)
-- **通知**: expo-notifications
-- **UI**: react-native-draggable-flatlist, react-native-gesture-handler
+### コアフレームワーク
+
+| 技術 | バージョン | 用途 |
+|-----|---------|------|
+| Expo | 54.0.33 | React Nativeの開発プラットフォーム。ビルド・デプロイを簡素化 |
+| React Native | 0.81.5 | クロスプラットフォームモバイルアプリ開発 |
+| React | 19.1.0 | UIコンポーネントライブラリ |
+| TypeScript | 5.9.2 | 型安全な開発環境 |
+
+### ナビゲーション・ルーティング
+
+| 技術 | バージョン | 用途 |
+|-----|---------|------|
+| expo-router | 6.0.23 | ファイルベースルーティング（Next.js風） |
+| react-native-screens | 4.16.0 | ネイティブスクリーン最適化 |
+| expo-linking | 8.0.11 | ディープリンク対応 |
+
+### データ永続化
+
+| 技術 | バージョン | 用途 |
+|-----|---------|------|
+| expo-sqlite | 16.0.10 | ローカルSQLiteデータベース。企業・選考イベントの保存 |
+
+### UI・インタラクション
+
+| 技術 | バージョン | 用途 |
+|-----|---------|------|
+| react-native-gesture-handler | 2.28.0 | ジェスチャー認識（長押し、スワイプ等） |
+| react-native-reanimated | 4.1.1 | 高性能アニメーション |
+| react-native-worklets | 0.5.1 | Reanimated用ワークレット |
+| react-native-draggable-flatlist | 4.0.3 | ドラッグ並べ替え可能リスト |
+| react-native-safe-area-context | 5.6.0 | セーフエリア対応 |
+| @react-native-community/datetimepicker | 8.4.4 | 日付・時刻ピッカー |
+
+### 通知・その他
+
+| 技術 | バージョン | 用途 |
+|-----|---------|------|
+| expo-notifications | 0.32.16 | プッシュ通知（面接リマインダー） |
+| expo-constants | 18.0.13 | アプリ定数取得 |
+| react-native-uuid | 2.0.3 | UUID生成（企業・イベントID） |
 
 ## プロジェクト構造
 
