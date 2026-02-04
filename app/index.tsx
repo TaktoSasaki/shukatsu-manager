@@ -11,7 +11,6 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DraggableFlatList, {
-    OpacityDecorator,
     RenderItemParams
 } from 'react-native-draggable-flatlist';
 import { Company } from '../types/company';
@@ -70,20 +69,22 @@ export default function HomeScreen() {
 
     const renderItem = useCallback(({ item, drag, isActive }: RenderItemParams<Company>) => {
         return (
-            <OpacityDecorator activeOpacity={0.9}>
-                <TouchableOpacity
-                    onLongPress={sortType === 'manual' ? drag : undefined}
+            <TouchableOpacity
+                onLongPress={sortType === 'manual' ? drag : undefined}
+                onPress={() => router.push(`/${item.id}`)}
+                disabled={isActive}
+                activeOpacity={0.9}
+                delayLongPress={200}
+                style={{
+                    opacity: isActive ? 0.9 : 1,
+                    transform: [{ scale: isActive ? 1.02 : 1 }],
+                }}
+            >
+                <CompanyCard
+                    company={item}
                     onPress={() => router.push(`/${item.id}`)}
-                    disabled={isActive}
-                    activeOpacity={1}
-                    delayLongPress={200}
-                >
-                    <CompanyCard
-                        company={item}
-                        onPress={() => router.push(`/${item.id}`)}
-                    />
-                </TouchableOpacity>
-            </OpacityDecorator>
+                />
+            </TouchableOpacity>
         );
     }, [router, sortType]);
 
@@ -112,6 +113,11 @@ export default function HomeScreen() {
                     renderItem={renderItem}
                     onDragEnd={handleDragEnd}
                     contentContainerStyle={styles.list}
+                    activationDistance={10}
+                    autoscrollThreshold={100}
+                    autoscrollSpeed={200}
+                    dragItemOverflow={false}
+                    containerStyle={{ flex: 1 }}
                     refreshControl={
                         <RefreshControl
                             refreshing={refreshing}
