@@ -9,7 +9,7 @@ interface CompanyCardProps {
     onPress: () => void;
 }
 
-export function CompanyCard({ company, onPress }: CompanyCardProps) {
+export const CompanyCard = React.memo(function CompanyCard({ company, onPress }: CompanyCardProps) {
     const daysRemaining = getDaysRemaining(company.nextInterviewDate);
 
     return (
@@ -60,7 +60,7 @@ export function CompanyCard({ company, onPress }: CompanyCardProps) {
             </View>
         </View>
     );
-}
+});
 
 const styles = StyleSheet.create({
     card: {

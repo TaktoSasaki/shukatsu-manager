@@ -16,6 +16,7 @@ import DraggableFlatList, {
 import { Company } from '../types/company';
 import { getAllCompanies, reorderCompanies, SortType } from '../database/repository';
 import { CompanyCard } from '../components/CompanyCard';
+import * as Haptics from 'expo-haptics';
 
 const SORT_OPTIONS: { type: SortType; label: string }[] = [
     { type: 'manual', label: '手動（ドラッグで並べ替え）' },
@@ -112,8 +113,9 @@ export default function HomeScreen() {
                     keyExtractor={(item) => item.id}
                     renderItem={renderItem}
                     onDragEnd={handleDragEnd}
+                    onDragBegin={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
                     contentContainerStyle={styles.list}
-                    activationDistance={10}
+                    activationDistance={5}
                     autoscrollThreshold={100}
                     autoscrollSpeed={200}
                     dragItemOverflow={false}

@@ -8,6 +8,7 @@ import {
     Alert,
     Linking,
     ActivityIndicator,
+    TextInput,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -37,6 +38,22 @@ export default function CompanyDetailScreen() {
     const [editing, setEditing] = useState(false);
     const [showEventModal, setShowEventModal] = useState(false);
     const [editingEvent, setEditingEvent] = useState<SelectionEvent | undefined>();
+    const [isEditingId, setIsEditingId] = useState(false);
+    const [tempLoginId, setTempLoginId] = useState('');
+
+    const handleSaveLoginId = async () => {
+        if (!id || !company) return;
+        try {
+            const updated = await updateCompany(id, { ...company, loginId: tempLoginId });
+            if (updated) {
+                setCompany(updated);
+                setIsEditingId(false);
+            }
+        } catch (error) {
+            console.error('Failed to update login ID:', error);
+            Alert.alert('エラー', 'ログインIDの更新に失敗しました');
+        }
+    };
 
     const loadData = useCallback(async () => {
         if (!id) return;
@@ -190,23 +207,66 @@ export default function CompanyDetailScreen() {
                         </TouchableOpacity>
                     )}
 
-                    {company.loginId && (
-                        <View style={styles.loginIdContainer}>
-                            <View>
-                                <Text style={styles.loginIdLabel}>ログインID</Text>
-                                <Text style={styles.loginIdValue}>{company.loginId}</Text>
+                    {/* ログインIDセクション */}
+                    <View style={styles.loginIdContainer}>
+                        {isEditingId ? (
+                            <View style={styles.loginIdEditContainer}>
+                                <TextInput
+                                    style={styles.loginIdInput}
+                                    value={tempLoginId}
+                                    onChangeText={setTempLoginId}
+                                    placeholder="ログインIDを入力"
+                                    autoCapitalize="none"
+                                />
+                                <View style={styles.loginIdEditActions}>
+                                    <TouchableOpacity
+                                        style={styles.cancelButton}
+                                        onPress={() => {
+                                            setIsEditingId(false);
+                                            setTempLoginId(company.loginId || '');
+                                        }}
+                                    >
+                                        <Text style={styles.cancelButtonText}>キャンセル</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.saveButton}
+                                        onPress={handleSaveLoginId}
+                                    >
+                                        <Text style={styles.saveButtonText}>保存</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
-                            <TouchableOpacity
-                                style={styles.copyButton}
-                                onPress={async () => {
-                                    await Clipboard.setStringAsync(company.loginId!);
-                                    Alert.alert('コピーしました', 'ログインIDをクリップボードにコピーしました');
-                                }}
-                            >
-                                <Text style={styles.copyButtonText}>コピー</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
+                        ) : (
+                            <>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.loginIdLabel}>ログインID</Text>
+                                    <Text style={styles.loginIdValue}>{company.loginId || '(未設定)'}</Text>
+                                </View>
+                                <View style={styles.loginIdActions}>
+                                    {company.loginId && (
+                                        <TouchableOpacity
+                                            style={styles.copyButton}
+                                            onPress={async () => {
+                                                await Clipboard.setStringAsync(company.loginId!);
+                                                Alert.alert('コピーしました', 'ログインIDをクリップボードにコピーしました');
+                                            }}
+                                        >
+                                            <Text style={styles.copyButtonText}>コピー</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                    <TouchableOpacity
+                                        style={styles.editIdButton}
+                                        onPress={() => {
+                                            setTempLoginId(company.loginId || '');
+                                            setIsEditingId(true);
+                                        }}
+                                    >
+                                        <Text style={styles.editIdButtonText}>編集</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </>
+                        )}
+                    </View>
                 </View>
 
                 {/* 選考履歴 */}
@@ -375,6 +435,29 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        minHeight: 60,
+    },
+    loginIdEditContainer: {
+        flex: 1,
+        gap: 8,
+    },
+    loginIdInput: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 8,
+        padding: 8,
+        fontSize: 16,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    loginIdEditActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 8,
+    },
+    loginIdActions: {
+        flexDirection: 'row',
+        gap: 8,
+        alignItems: 'center',
     },
     loginIdLabel: {
         fontSize: 12,
@@ -398,6 +481,36 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#4F46E5',
         fontWeight: '600',
+    },
+    editIdButton: {
+        backgroundColor: '#EEF2FF',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 6,
+    },
+    editIdButtonText: {
+        fontSize: 12,
+        color: '#4F46E5',
+        fontWeight: '600',
+    },
+    saveButton: {
+        backgroundColor: '#4F46E5',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 6,
+    },
+    saveButtonText: {
+        fontSize: 12,
+        color: '#FFFFFF',
+        fontWeight: '600',
+    },
+    cancelButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+    },
+    cancelButtonText: {
+        fontSize: 12,
+        color: '#6B7280',
     },
     section: {
         backgroundColor: '#FFFFFF',
