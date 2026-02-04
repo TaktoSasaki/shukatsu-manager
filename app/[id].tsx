@@ -26,6 +26,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { SelectionTimeline } from '../components/SelectionTimeline';
 import { AddEventModal } from '../components/AddEventModal';
 import { formatDisplayDate, getDaysRemaining } from '../utils/date';
+import * as Clipboard from 'expo-clipboard';
 
 export default function CompanyDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -188,6 +189,24 @@ export default function CompanyDetailScreen() {
                             <Text style={styles.myPageButtonText}>マイページを開く</Text>
                         </TouchableOpacity>
                     )}
+
+                    {company.loginId && (
+                        <View style={styles.loginIdContainer}>
+                            <View>
+                                <Text style={styles.loginIdLabel}>ログインID</Text>
+                                <Text style={styles.loginIdValue}>{company.loginId}</Text>
+                            </View>
+                            <TouchableOpacity
+                                style={styles.copyButton}
+                                onPress={async () => {
+                                    await Clipboard.setStringAsync(company.loginId!);
+                                    Alert.alert('コピーしました', 'ログインIDをクリップボードにコピーしました');
+                                }}
+                            >
+                                <Text style={styles.copyButtonText}>コピー</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </View>
 
                 {/* 選考履歴 */}
@@ -347,6 +366,38 @@ const styles = StyleSheet.create({
         color: '#4F46E5',
         fontWeight: '600',
         fontSize: 15,
+    },
+    loginIdContainer: {
+        marginTop: 12,
+        backgroundColor: '#F3F4F6',
+        padding: 12,
+        borderRadius: 10,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    loginIdLabel: {
+        fontSize: 12,
+        color: '#6B7280',
+        marginBottom: 2,
+    },
+    loginIdValue: {
+        fontSize: 16,
+        color: '#1F2937',
+        fontWeight: '600',
+    },
+    copyButton: {
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    copyButtonText: {
+        fontSize: 12,
+        color: '#4F46E5',
+        fontWeight: '600',
     },
     section: {
         backgroundColor: '#FFFFFF',
