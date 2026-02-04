@@ -11,10 +11,9 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DraggableFlatList, {
-    ScaleDecorator,
+    OpacityDecorator,
     RenderItemParams
 } from 'react-native-draggable-flatlist';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Company } from '../types/company';
 import { getAllCompanies, reorderCompanies, SortType } from '../database/repository';
 import { CompanyCard } from '../components/CompanyCard';
@@ -71,20 +70,20 @@ export default function HomeScreen() {
 
     const renderItem = useCallback(({ item, drag, isActive }: RenderItemParams<Company>) => {
         return (
-            <ScaleDecorator>
+            <OpacityDecorator activeOpacity={0.9}>
                 <TouchableOpacity
                     onLongPress={sortType === 'manual' ? drag : undefined}
                     onPress={() => router.push(`/${item.id}`)}
                     disabled={isActive}
-                    activeOpacity={0.9}
-                    delayLongPress={150}
+                    activeOpacity={1}
+                    delayLongPress={200}
                 >
                     <CompanyCard
                         company={item}
                         onPress={() => router.push(`/${item.id}`)}
                     />
                 </TouchableOpacity>
-            </ScaleDecorator>
+            </OpacityDecorator>
         );
     }, [router, sortType]);
 
@@ -97,102 +96,100 @@ export default function HomeScreen() {
     }
 
     return (
-        <GestureHandlerRootView style={{ flex: 1 }}>
-            <SafeAreaView style={styles.container} edges={['bottom']}>
-                {companies.length === 0 ? (
-                    <View style={styles.emptyContainer}>
-                        <Text style={styles.emptyIcon}>📋</Text>
-                        <Text style={styles.emptyTitle}>まだ企業が登録されていません</Text>
-                        <Text style={styles.emptySubtitle}>
-                            右下の「+」ボタンから{'\n'}企業を追加しましょう
-                        </Text>
-                    </View>
-                ) : (
-                    <DraggableFlatList
-                        data={companies}
-                        keyExtractor={(item) => item.id}
-                        renderItem={renderItem}
-                        onDragEnd={handleDragEnd}
-                        contentContainerStyle={styles.list}
-                        refreshControl={
-                            <RefreshControl
-                                refreshing={refreshing}
-                                onRefresh={handleRefresh}
-                                tintColor="#4F46E5"
-                            />
-                        }
-                        ListHeaderComponent={
-                            <View style={styles.header}>
-                                <Text style={styles.headerText}>
-                                    {companies.length}社を管理中
+        <SafeAreaView style={styles.container} edges={['bottom']}>
+            {companies.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyIcon}>📋</Text>
+                    <Text style={styles.emptyTitle}>まだ企業が登録されていません</Text>
+                    <Text style={styles.emptySubtitle}>
+                        右下の「+」ボタンから{'\n'}企業を追加しましょう
+                    </Text>
+                </View>
+            ) : (
+                <DraggableFlatList
+                    data={companies}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderItem}
+                    onDragEnd={handleDragEnd}
+                    contentContainerStyle={styles.list}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={handleRefresh}
+                            tintColor="#4F46E5"
+                        />
+                    }
+                    ListHeaderComponent={
+                        <View style={styles.header}>
+                            <Text style={styles.headerText}>
+                                {companies.length}社を管理中
+                            </Text>
+                            <TouchableOpacity
+                                style={styles.sortButton}
+                                onPress={() => setShowSortModal(true)}
+                            >
+                                <Text style={styles.sortButtonText}>
+                                    並べ替え
                                 </Text>
-                                <TouchableOpacity
-                                    style={styles.sortButton}
-                                    onPress={() => setShowSortModal(true)}
-                                >
-                                    <Text style={styles.sortButtonText}>
-                                        並べ替え
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                        }
-                    />
-                )}
-
-                {/* FAB */}
-                <TouchableOpacity
-                    style={styles.fab}
-                    onPress={() => router.push('/add')}
-                    activeOpacity={0.8}
-                >
-                    <Text style={styles.fabIcon}>＋</Text>
-                </TouchableOpacity>
-
-                {/* Sort Modal */}
-                <Modal
-                    visible={showSortModal}
-                    animationType="slide"
-                    transparent
-                    onRequestClose={() => setShowSortModal(false)}
-                >
-                    <View style={styles.modalOverlay}>
-                        <View style={styles.modalContent}>
-                            <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>並べ替え</Text>
-                                <TouchableOpacity onPress={() => setShowSortModal(false)}>
-                                    <Text style={styles.modalClose}>閉じる</Text>
-                                </TouchableOpacity>
-                            </View>
-                            {SORT_OPTIONS.map((option) => (
-                                <TouchableOpacity
-                                    key={option.type}
-                                    style={[
-                                        styles.sortOption,
-                                        sortType === option.type && styles.sortOptionSelected,
-                                    ]}
-                                    onPress={() => handleSortChange(option.type)}
-                                >
-                                    <Text style={[
-                                        styles.sortOptionText,
-                                        sortType === option.type && styles.sortOptionTextSelected,
-                                    ]}>
-                                        {option.label}
-                                    </Text>
-                                    {sortType === option.type && (
-                                        <Text style={styles.checkmark}>✓</Text>
-                                    )}
-                                </TouchableOpacity>
-                            ))}
-                            {sortType === 'manual' && (
-                                <Text style={styles.sortHint}>
-                                    💡 カードを長押しして上下にドラッグ
-                                </Text>
-                            )}
+                            </TouchableOpacity>
                         </View>
+                    }
+                />
+            )}
+
+            {/* FAB */}
+            <TouchableOpacity
+                style={styles.fab}
+                onPress={() => router.push('/add')}
+                activeOpacity={0.8}
+            >
+                <Text style={styles.fabIcon}>＋</Text>
+            </TouchableOpacity>
+
+            {/* Sort Modal */}
+            <Modal
+                visible={showSortModal}
+                animationType="slide"
+                transparent
+                onRequestClose={() => setShowSortModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>並べ替え</Text>
+                            <TouchableOpacity onPress={() => setShowSortModal(false)}>
+                                <Text style={styles.modalClose}>閉じる</Text>
+                            </TouchableOpacity>
+                        </View>
+                        {SORT_OPTIONS.map((option) => (
+                            <TouchableOpacity
+                                key={option.type}
+                                style={[
+                                    styles.sortOption,
+                                    sortType === option.type && styles.sortOptionSelected,
+                                ]}
+                                onPress={() => handleSortChange(option.type)}
+                            >
+                                <Text style={[
+                                    styles.sortOptionText,
+                                    sortType === option.type && styles.sortOptionTextSelected,
+                                ]}>
+                                    {option.label}
+                                </Text>
+                                {sortType === option.type && (
+                                    <Text style={styles.checkmark}>✓</Text>
+                                )}
+                            </TouchableOpacity>
+                        ))}
+                        {sortType === 'manual' && (
+                            <Text style={styles.sortHint}>
+                                💡 カードを長押しして上下にドラッグ
+                            </Text>
+                        )}
                     </View>
-                </Modal>
-            </SafeAreaView>
-        </GestureHandlerRootView>
+                </View>
+            </Modal>
+        </SafeAreaView>
     );
 }
 
