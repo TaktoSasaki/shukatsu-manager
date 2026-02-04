@@ -1,8 +1,8 @@
 # 就活マネージャー (Shukatsu Manager)
 
-就職活動を効率的に管理するためのモバイルアプリケーションです。
+就職活動を効率的に管理するためのモバイルアプリケーション。
 
-## 📱 機能
+## 機能
 
 - **企業管理**: 応募企業の情報（会社名・マイページURL・ES内容など）を一元管理
 - **選考進捗トラッキング**: ES提出、面接、GDなどの選考イベントをタイムライン形式で表示
@@ -11,16 +11,16 @@
 - **ドラッグ並べ替え**: 企業カードを手動で並べ替え可能
 - **ソート機能**: ステータス順、面接日順など複数の並び替えオプション
 
-## 🛠 技術スタック
+## 技術スタック
 
-- **Framework**: [Expo](https://expo.dev/) v54 + React Native
+- **Framework**: Expo v54 + React Native
 - **言語**: TypeScript
 - **ナビゲーション**: expo-router
 - **データベース**: expo-sqlite (ローカルストレージ)
 - **通知**: expo-notifications
 - **UI**: react-native-draggable-flatlist, react-native-gesture-handler
 
-## 📁 プロジェクト構造
+## プロジェクト構造
 
 ```
 shukatsu-manager/
@@ -47,13 +47,13 @@ shukatsu-manager/
     └── status.ts          # ステータスリスト
 ```
 
-## 🚀 セットアップ
+## セットアップ
 
 ### 必要条件
 
 - Node.js v18以上
 - npm または yarn
-- Expo CLI (`npm install -g expo-cli`)
+- Expo CLI
 - iOS: Xcode (macOSのみ)
 - Android: Android Studio
 
@@ -73,7 +73,7 @@ npm run ios
 npm run android
 ```
 
-## 📊 データモデル
+## データモデル
 
 ### Company (企業)
 
@@ -103,10 +103,6 @@ npm run android
 | result | string | 結果 |
 | notes | string? | メモ |
 
-## 📝 ライセンス
+## ライセンス
 
-Private - All Rights Reserved
-
-## 👤 作成者
-
-Takuto
+Private
