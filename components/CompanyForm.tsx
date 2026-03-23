@@ -85,6 +85,7 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
             esContent: esContent.trim() || null,
             motivation: motivation.trim() || null,
             notes: notes.trim() || null,
+            transcription: initialData?.transcription ?? null,
             status,
         });
     };

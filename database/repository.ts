@@ -80,8 +80,8 @@ export async function createCompany(input: CompanyInput): Promise<Company> {
     await db.runAsync(
         `INSERT INTO companies (
       id, companyName, loginId, myPageUrl, entryDate, nextInterviewDate,
-      position, esContent, motivation, notes, status, sortOrder, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      position, esContent, motivation, notes, transcription, status, sortOrder, createdAt, updatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             id,
             input.companyName,
@@ -93,6 +93,7 @@ export async function createCompany(input: CompanyInput): Promise<Company> {
             input.esContent,
             input.motivation,
             input.notes,
+            input.transcription ?? null,
             input.status,
             newSortOrder,
             now,
@@ -138,6 +139,7 @@ export async function updateCompany(id: string, updates: CompanyUpdate): Promise
       esContent = ?,
       motivation = ?,
       notes = ?,
+      transcription = ?,
       status = ?,
       updatedAt = ?
     WHERE id = ?`,
@@ -151,6 +153,7 @@ export async function updateCompany(id: string, updates: CompanyUpdate): Promise
             updated.esContent,
             updated.motivation,
             updated.notes,
+            updated.transcription,
             updated.status,
             now,
             id,

@@ -34,7 +34,13 @@
       "expo-router",
       "expo-sqlite",
       "@react-native-community/datetimepicker",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "面接の音声を録音して文字起こしするためにマイクへのアクセスが必要です。"
+        }
+      ]
     ]
   }
 }

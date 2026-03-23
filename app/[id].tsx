@@ -28,6 +28,7 @@ import { SelectionTimeline } from '../components/SelectionTimeline';
 import { AddEventModal } from '../components/AddEventModal';
 import { formatDisplayDate, getDaysRemaining } from '../utils/date';
 import * as Clipboard from 'expo-clipboard';
+import { TranscriptionView } from '../components/TranscriptionView';
 
 export default function CompanyDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -274,6 +275,21 @@ export default function CompanyDetailScreen() {
                     events={events}
                     onEventPress={handleEventPress}
                     onAddPress={() => setShowEventModal(true)}
+                />
+
+                {/* 面接録音・文字起こし */}
+                <TranscriptionView
+                    companyId={id || ''}
+                    existingTranscription={company.transcription}
+                    onTranscriptionComplete={async (text) => {
+                        if (!id) return;
+                        try {
+                            const updated = await updateCompany(id, { transcription: text || null });
+                            if (updated) setCompany(updated);
+                        } catch (error) {
+                            console.error('Failed to save transcription:', error);
+                        }
+                    }}
                 />
 
                 {/* 基本情報 */}

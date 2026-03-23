@@ -11,6 +11,7 @@ export interface Company {
   esContent: string | null; // 使用したES
   motivation: string | null; // 志望動機
   notes: string | null; // その他メモ
+  transcription: string | null; // 面接録音の文字起こし
   status: string; // カスタム可能なステータス
   sortOrder: number; // 手動並び替え用
   createdAt: string;

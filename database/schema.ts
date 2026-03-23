@@ -54,6 +54,13 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void
     // カラムが既に存在する場合は無視
   }
 
+  // transcriptionカラムが存在しない場合は追加（マイグレーション）
+  try {
+    await database.execAsync(`ALTER TABLE companies ADD COLUMN transcription TEXT;`);
+  } catch (e) {
+    // カラムが既に存在する場合は無視
+  }
+
   // カスタムステータステーブル（ユーザーが追加したステータスを保存）
   await database.execAsync(`
     CREATE TABLE IF NOT EXISTS custom_statuses (
