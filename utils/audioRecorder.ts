@@ -21,33 +21,8 @@ const initialState: RecorderState = {
 
 let state: RecorderState = { ...initialState };
 
-// 録音設定（WAV形式、モノラル、16kHz）
-const RECORDING_OPTIONS: Audio.RecordingOptions = {
-    isMeteringEnabled: true,
-    android: {
-        extension: '.wav',
-        outputFormat: Audio.AndroidOutputFormat.DEFAULT,
-        audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
-        sampleRate: 16000,
-        numberOfChannels: 1,
-        bitRate: 256000,
-    },
-    ios: {
-        extension: '.wav',
-        outputFormat: Audio.IOSOutputFormat.LINEARPCM,
-        audioQuality: Audio.IOSAudioQuality.HIGH,
-        sampleRate: 16000,
-        numberOfChannels: 1,
-        bitRate: 256000,
-        linearPCMBitDepth: 16,
-        linearPCMIsBigEndian: false,
-        linearPCMIsFloat: false,
-    },
-    web: {
-        mimeType: 'audio/wav',
-        bitsPerSecond: 256000,
-    },
-};
+// 録音設定（高品質のデフォルトプリセットを使用。whisper.rn側で16kHz等に自動変換されます）
+const RECORDING_OPTIONS: Audio.RecordingOptions = Audio.RecordingOptionsPresets.HIGH_QUALITY;
 
 // マイク権限をリクエスト
 export async function requestAudioPermission(): Promise<boolean> {
