@@ -8,6 +8,7 @@ import {
     ScrollView,
     Alert,
 } from 'react-native';
+import { Audio } from 'expo-av';
 import { startRecording, stopRecording, formatDuration } from '../utils/audioRecorder';
 import { transcribeLocalAudio, initWhisper } from '../utils/whisperLocal';
 
@@ -30,7 +31,10 @@ export function TranscriptionView({
     const [recordingDuration, setRecordingDuration] = useState(0);
     const [displayText, setDisplayText] = useState(existingTranscription || '');
     const [progressText, setProgressText] = useState('');
+    const [savedAudioUri, setSavedAudioUri] = useState<string | null>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const soundRef = useRef<Audio.Sound | null>(null);
 
     // 既存データ反映
     useEffect(() => {
@@ -74,6 +78,8 @@ export function TranscriptionView({
                 return;
             }
 
+            setSavedAudioUri(uri);
+
             // ローカルでWhisperを実行
             setProgressText('AIモデルの準備と文字起こしを実行中...\n（録音の長さにより数秒〜数十秒かかります）');
 
@@ -101,6 +107,32 @@ export function TranscriptionView({
         }
     };
 
+    const playAudio = async () => {
+        if (!savedAudioUri) return;
+        try {
+            // 前の音が鳴っていれば停止・破棄
+            if (soundRef.current) {
+                await soundRef.current.unloadAsync();
+            }
+            // 新しく音声を読み込んで再生
+            const { sound } = await Audio.Sound.createAsync(
+                { uri: savedAudioUri },
+                { shouldPlay: true }
+            );
+            soundRef.current = sound;
+            setIsPlaying(true);
+
+            sound.setOnPlaybackStatusUpdate((status) => {
+                if (status.isLoaded && status.didJustFinish) {
+                    setIsPlaying(false);
+                }
+            });
+        } catch (e) {
+            Alert.alert('再生エラー', '音声の再生に失敗しました。無音またはマイクが接続されていない可能性があります。');
+            setIsPlaying(false);
+        }
+    };
+
     const handleReset = () => {
         Alert.alert(
             '確認',
@@ -112,6 +144,7 @@ export function TranscriptionView({
                         setDisplayText('');
                         setViewState('idle');
                         setRecordingDuration(0);
+                        setSavedAudioUri(null);
                         onTranscriptionComplete('');
                     }
                 },
@@ -124,6 +157,9 @@ export function TranscriptionView({
         return () => {
             if (intervalRef.current) {
                 clearInterval(intervalRef.current);
+            }
+            if (soundRef.current) {
+                soundRef.current.unloadAsync();
             }
         };
     }, []);
@@ -195,12 +231,25 @@ export function TranscriptionView({
                             {displayText}
                         </Text>
                     </ScrollView>
-                    <TouchableOpacity
-                        style={styles.reRecordButton}
-                        onPress={handleReset}
-                    >
-                        <Text style={styles.reRecordButtonText}>🎙️ 録音し直す</Text>
-                    </TouchableOpacity>
+                    <View style={styles.actionButtonsRow}>
+                        {savedAudioUri && (
+                            <TouchableOpacity
+                                style={[styles.reRecordButton, styles.playButton]}
+                                onPress={playAudio}
+                                disabled={isPlaying}
+                            >
+                                <Text style={[styles.reRecordButtonText, isPlaying && { color: '#9CA3AF' }]}>
+                                    {isPlaying ? '🔊 再生中...' : '▶️ 録音を聞く'}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                        <TouchableOpacity
+                            style={styles.reRecordButton}
+                            onPress={handleReset}
+                        >
+                            <Text style={styles.reRecordButtonText}>🎙️ 撮り直す</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             ) : null}
         </View>
@@ -352,15 +401,25 @@ const styles = StyleSheet.create({
         lineHeight: 22,
     },
     reRecordButton: {
-        alignSelf: 'center',
+        flex: 1,
+        alignItems: 'center',
         backgroundColor: '#F3F4F6',
         paddingHorizontal: 20,
-        paddingVertical: 10,
+        paddingVertical: 12,
         borderRadius: 20,
+    },
+    playButton: {
+        backgroundColor: '#E0F2FE',
     },
     reRecordButtonText: {
         color: '#374151',
         fontSize: 14,
         fontWeight: '600',
+    },
+    actionButtonsRow: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 12,
+        marginTop: 4,
     },
 });
