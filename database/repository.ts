@@ -35,8 +35,10 @@ export async function getAllCompanies(sortType: SortType = 'manual'): Promise<Co
     if (sortType === 'status-asc' || sortType === 'status-desc') {
         const statusOrder = [...DEFAULT_STATUS_LIST];
         result.sort((a, b) => {
-            const aIndex = statusOrder.indexOf(a.status as any) ?? statusOrder.length;
-            const bIndex = statusOrder.indexOf(b.status as any) ?? statusOrder.length;
+            const aRaw = statusOrder.indexOf(a.status as any);
+            const bRaw = statusOrder.indexOf(b.status as any);
+            const aIndex = aRaw === -1 ? statusOrder.length : aRaw;
+            const bIndex = bRaw === -1 ? statusOrder.length : bRaw;
             return sortType === 'status-asc' ? aIndex - bIndex : bIndex - aIndex;
         });
     }
@@ -273,21 +275,36 @@ export async function createSelectionEvent(input: SelectionEventInput): Promise<
     const now = getCurrentISOString();
     const id = uuid.v4() as string;
 
-    await db.runAsync(
-        `INSERT INTO selection_events (id, companyId, eventType, eventDate, result, notes, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [id, input.companyId, input.eventType, input.eventDate, input.result, input.notes, now]
-    );
+    // イベント挿入とステータス自動更新をアトミックに実行
+    await db.withTransactionAsync(async () => {
+        await db.runAsync(
+            `INSERT INTO selection_events (id, companyId, eventType, eventDate, result, notes, createdAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [id, input.companyId, input.eventType, input.eventDate, input.result, input.notes, now]
+        );
 
-    // 結果が「通過」の場合、企業のステータスを自動更新
-    if (input.result === '通過') {
-        const nextStatus = getNextStatusAfterEvent(input.eventType, input.result);
-        if (nextStatus) {
-            await updateCompany(input.companyId, { status: nextStatus });
+        // 結果が「通過」の場合、企業のステータスを自動更新
+        if (input.result === '通過') {
+            const nextStatus = getNextStatusAfterEvent(input.eventType, input.result);
+            if (nextStatus) {
+                const existing = await db.getFirstAsync<Company>(
+                    'SELECT * FROM companies WHERE id = ?',
+                    [input.companyId]
+                );
+                if (existing) {
+                    await db.runAsync(
+                        `UPDATE companies SET status = ?, updatedAt = ? WHERE id = ?`,
+                        [nextStatus, now, input.companyId]
+                    );
+                }
+            }
+        } else if (input.result === '不通過') {
+            await db.runAsync(
+                `UPDATE companies SET status = ?, updatedAt = ? WHERE id = ?`,
+                ['不採用', now, input.companyId]
+            );
         }
-    } else if (input.result === '不通過') {
-        await updateCompany(input.companyId, { status: '不採用' });
-    }
+    });
 
     return {
         id,

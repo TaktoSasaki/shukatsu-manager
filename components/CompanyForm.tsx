@@ -49,8 +49,12 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
     }, []);
 
     const loadCustomStatuses = async () => {
-        const statuses = await getAllCustomStatuses();
-        setCustomStatuses(statuses);
+        try {
+            const statuses = await getAllCustomStatuses();
+            setCustomStatuses(statuses);
+        } catch (error) {
+            console.error('Failed to load custom statuses:', error);
+        }
     };
 
     const handleAddCustomStatus = async () => {
