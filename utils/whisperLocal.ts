@@ -3,9 +3,9 @@ import { documentDirectory, getInfoAsync, makeDirectoryAsync, createDownloadResu
 import { initWhisper as initWhisperRN, WhisperContext } from 'whisper.rn';
 import { Platform } from 'react-native';
 
-// モデルのダウンロードURL（テスト用に軽量なggml-tiny.binを使用）
-const MODEL_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin';
-const MODEL_FILE_NAME = 'ggml-tiny.bin';
+// モデルのダウンロードURL（日本語精度の向上と安定化のため ggml-base.bin を使用）
+const MODEL_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin';
+const MODEL_FILE_NAME = 'ggml-base.bin';
 
 let whisperContext: WhisperContext | null = null;
 
