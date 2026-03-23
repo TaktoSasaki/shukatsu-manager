@@ -44,7 +44,7 @@ export default function CompanyDetailScreen() {
     const handleSaveLoginId = async () => {
         if (!id || !company) return;
         try {
-            const updated = await updateCompany(id, { ...company, loginId: tempLoginId });
+            const updated = await updateCompany(id, { loginId: tempLoginId });
             if (updated) {
                 setCompany(updated);
                 setIsEditingId(false);

@@ -3,14 +3,20 @@ import * as SQLite from 'expo-sqlite';
 const DATABASE_NAME = 'shukatsu.db';
 
 let db: SQLite.SQLiteDatabase | null = null;
+let dbInitPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
-// データベース接続を取得
+// データベース接続を取得（競合状態を防ぐためPromiseをキャッシュ）
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
-  if (!db) {
-    db = await SQLite.openDatabaseAsync(DATABASE_NAME);
-    await initializeDatabase(db);
+  if (db) return db;
+  if (!dbInitPromise) {
+    dbInitPromise = (async () => {
+      const database = await SQLite.openDatabaseAsync(DATABASE_NAME);
+      await initializeDatabase(database);
+      db = database;
+      return database;
+    })();
   }
-  return db;
+  return dbInitPromise;
 }
 
 // テーブル作成
@@ -77,6 +83,7 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void
 // データベースをリセット（開発用）
 export async function resetDatabase(): Promise<void> {
   const database = await getDatabase();
+  await database.execAsync('DROP TABLE IF EXISTS selection_events');
   await database.execAsync('DROP TABLE IF EXISTS companies');
   await database.execAsync('DROP TABLE IF EXISTS custom_statuses');
   await initializeDatabase(database);

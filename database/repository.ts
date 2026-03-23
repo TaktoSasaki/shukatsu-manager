@@ -168,6 +168,8 @@ export async function updateCompany(id: string, updates: CompanyUpdate): Promise
 // 企業を削除
 export async function deleteCompany(id: string): Promise<boolean> {
     const db = await getDatabase();
+    // 通知をキャンセルしてから削除
+    await cancelNotificationForCompany(id);
     const result = await db.runAsync('DELETE FROM companies WHERE id = ?', [id]);
     return result.changes > 0;
 }
@@ -176,12 +178,15 @@ export async function deleteCompany(id: string): Promise<boolean> {
 export async function reorderCompanies(orderedIds: string[]): Promise<void> {
     const db = await getDatabase();
 
-    for (let i = 0; i < orderedIds.length; i++) {
-        await db.runAsync(
-            'UPDATE companies SET sortOrder = ? WHERE id = ?',
-            [i, orderedIds[i]]
-        );
-    }
+    // トランザクションで一括更新（中間失敗時のデータ不整合を防止）
+    await db.withTransactionAsync(async () => {
+        for (let i = 0; i < orderedIds.length; i++) {
+            await db.runAsync(
+                'UPDATE companies SET sortOrder = ? WHERE id = ?',
+                [i, orderedIds[i]]
+            );
+        }
+    });
 }
 
 // ステータスで絞り込み

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -39,6 +39,19 @@ export function AddEventModal({
     const [showDatePicker, setShowDatePicker] = useState(false);
 
     const isEditing = !!initialEvent;
+
+    // initialEvent が変わった場合にフォーム状態を同期
+    useEffect(() => {
+        if (initialEvent) {
+            setEventType(initialEvent.eventType);
+            setEventDate(initialEvent.eventDate || '');
+            setResult(initialEvent.result);
+            setNotes(initialEvent.notes || '');
+        } else if (visible) {
+            // 新規追加モードで開かれた場合はリセット
+            resetForm();
+        }
+    }, [initialEvent, visible]);
 
     const handleSubmit = () => {
         onSubmit({

@@ -57,10 +57,17 @@ export default function HomeScreen() {
     };
 
     const handleDragEnd = async ({ data }: { data: Company[] }) => {
+        const previousData = companies;
         setCompanies(data);
         // データベースに新しい順序を保存
-        const orderedIds = data.map(c => c.id);
-        await reorderCompanies(orderedIds);
+        try {
+            const orderedIds = data.map(c => c.id);
+            await reorderCompanies(orderedIds);
+        } catch (error) {
+            // 失敗時はUIを元の状態に戻す
+            console.error('Failed to reorder companies:', error);
+            setCompanies(previousData);
+        }
     };
 
     const handleSortChange = (newSortType: SortType) => {
