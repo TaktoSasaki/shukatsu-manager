@@ -1,6 +1,6 @@
 import { documentDirectory, getInfoAsync, makeDirectoryAsync, createDownloadResumable, deleteAsync } from 'expo-file-system/legacy';
 // @ts-ignore
-import { whisper, WhisperContext } from 'whisper.rn';
+import { initWhisper as initWhisperRN, WhisperContext } from 'whisper.rn';
 import { Platform } from 'react-native';
 
 // モデルのダウンロードURL（テスト用に軽量なggml-tiny.binを使用）
@@ -69,7 +69,7 @@ export async function initWhisper(onProgress?: (progress: number) => void): Prom
     const modelPath = await downloadModel(onProgress);
 
     // 2. Whisperコンテキスト作成
-    whisperContext = await whisper.initContext({
+    whisperContext = await initWhisperRN({
         filePath: modelPath,
     });
 }
