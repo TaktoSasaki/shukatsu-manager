@@ -6,6 +6,8 @@ import { Platform } from 'react-native';
 // モデルのダウンロードURL（日本語精度の向上と安定化のため ggml-base.bin を使用）
 const MODEL_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin';
 const MODEL_FILE_NAME = 'ggml-base.bin';
+// ggml-base.bin の期待される最小サイズ（約142MB）。破損ファイル検出に利用
+const MODEL_MIN_SIZE = 100_000_000;
 
 let whisperContext: WhisperContext | null = null;
 
@@ -29,10 +31,15 @@ export async function downloadModel(
     }
 
     const modelInfo = await getInfoAsync(modelPath);
-    if (modelInfo.exists && modelInfo.size && modelInfo.size > 0) {
-        // 既に存在する場合は再利用
+    if (modelInfo.exists && modelInfo.size && modelInfo.size > MODEL_MIN_SIZE) {
+        // 既に存在し、サイズも十分な場合は再利用
         if (onProgress) onProgress(1); // 100%
         return modelPath;
+    }
+
+    // 破損ファイルが残っている場合は削除
+    if (modelInfo.exists) {
+        await deleteAsync(modelPath, { idempotent: true });
     }
 
     // FileSystem.createDownloadResumable を使ってダウンロード
@@ -49,6 +56,14 @@ export async function downloadModel(
     try {
         const result = await downloadResumable.downloadAsync();
         if (!result) throw new Error('Download failed');
+
+        // ダウンロード後にサイズ検証
+        const downloadedInfo = await getInfoAsync(result.uri);
+        if (!downloadedInfo.exists || !downloadedInfo.size || downloadedInfo.size < MODEL_MIN_SIZE) {
+            await deleteAsync(modelPath, { idempotent: true });
+            throw new Error('ダウンロードされたモデルファイルが破損しています。ネットワーク接続を確認して再度お試しください。');
+        }
+
         return result.uri;
     } catch (e) {
         // 失敗した場合は削除しておく
@@ -69,8 +84,14 @@ export async function initWhisper(onProgress?: (progress: number) => void): Prom
     const modelPath = await downloadModel(onProgress);
 
     // 2. Whisperコンテキスト作成
+    // file:// プレフィックスを除去（whisper.rn はローカルパスを期待する）
+    let cleanPath = modelPath;
+    if (cleanPath.startsWith('file://')) {
+        cleanPath = cleanPath.slice(7);
+    }
+
     whisperContext = await initWhisperRN({
-        filePath: modelPath,
+        filePath: cleanPath,
     });
 }
 
@@ -87,15 +108,20 @@ export async function transcribeLocalAudio(audioUri: string): Promise<string> {
         throw new Error('Whisper context could not be initialized.');
     }
 
-    // パスの正規化（iOSの場合 'file://' プレフィックスを外すことが多い）
+    // パスの正規化（whisper.rn は内部で file:// を除去するが念のため）
     let cleanUri = audioUri;
-    if (Platform.OS === 'ios' && cleanUri.startsWith('file://')) {
-        cleanUri = cleanUri.replace('file://', '');
+    if (cleanUri.startsWith('file://')) {
+        cleanUri = cleanUri.slice(7);
     }
 
-    // 文字起こし実行（日本語指定）
+    // 文字起こし実行（日本語指定 + ハルシネーション抑制パラメータ）
     const { promise } = whisperContext.transcribe(cleanUri, {
         language: 'ja',
+        maxLen: 0,         // セグメント長制限なし（途中で切れるのを防止）
+        translate: false,  // 翻訳しない（日本語のまま出力）
+        beamSize: 5,       // ビームサーチで精度向上
+        bestOf: 5,         // 候補数を増やして精度向上
+        temperature: 0.0,  // 決定論的にすることでハルシネーションを抑制
     });
 
     const result = await promise;
