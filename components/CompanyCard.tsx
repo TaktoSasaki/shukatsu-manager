@@ -6,10 +6,9 @@ import { formatDisplayDate, formatDisplayDateTime, extractTimeFromDateTime, getD
 
 interface CompanyCardProps {
     company: Company;
-    onPress: () => void;
 }
 
-export const CompanyCard = React.memo(function CompanyCard({ company, onPress }: CompanyCardProps) {
+export const CompanyCard = React.memo(function CompanyCard({ company }: CompanyCardProps) {
     const daysRemaining = getDaysRemaining(company.nextInterviewDate);
 
     return (

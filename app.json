@@ -40,7 +40,8 @@
         {
           "microphonePermission": "面接の音声を録音して文字起こしするためにマイクへのアクセスが必要です。"
         }
-      ]
+      ],
+      "expo-file-system"
     ]
   }
 }

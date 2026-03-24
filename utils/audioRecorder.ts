@@ -1,55 +1,26 @@
 // 録音ユーティリティ
-// expo-av を使ったWAV録音の開始/停止/管理
+// react-native-audio-record を使った純粋なWAV/PCM録音の管理
 import { Audio } from 'expo-av';
 import { Platform } from 'react-native';
+// @ts-ignore
+import AudioRecord from 'react-native-audio-record';
 
 export type RecordingStatus = 'idle' | 'recording' | 'paused' | 'stopped';
 
 interface RecorderState {
-    recording: Audio.Recording | null;
     uri: string | null;
     status: RecordingStatus;
     durationMs: number;
 }
 
 const initialState: RecorderState = {
-    recording: null,
     uri: null,
     status: 'idle',
     durationMs: 0,
 };
 
 let state: RecorderState = { ...initialState };
-
-// 録音設定（Whisper互換: WAV/PCM, 16kHz, モノラル）
-// ※ whisper.rn (whisper.cpp) は WAV/PCM 16kHz モノラルを要求します。
-//   m4a/AAC等の圧縮フォーマットを渡すとデコード不可→ハルシネーション発生のため注意。
-const RECORDING_OPTIONS: Audio.RecordingOptions = {
-    isMeteringEnabled: true,
-    android: {
-        extension: '.wav',
-        outputFormat: Audio.AndroidOutputFormat.DEFAULT,
-        audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
-        sampleRate: 16000,
-        numberOfChannels: 1,
-        bitRate: 256000,
-    },
-    ios: {
-        extension: '.wav',
-        outputFormat: Audio.IOSOutputFormat.LINEARPCM,
-        audioQuality: Audio.IOSAudioQuality.HIGH,
-        sampleRate: 16000,
-        numberOfChannels: 1,
-        bitRate: 256000,
-        linearPCMBitDepth: 16,
-        linearPCMIsBigEndian: false,
-        linearPCMIsFloat: false,
-    },
-    web: {
-        mimeType: 'audio/wav',
-        bitsPerSecond: 256000,
-    },
-};
+let isInitialized = false;
 
 // マイク権限をリクエスト
 export async function requestAudioPermission(): Promise<boolean> {
@@ -65,56 +36,53 @@ export async function startRecording(): Promise<void> {
         throw new Error('マイクの使用が許可されていません');
     }
 
-    // オーディオモード設定
-    await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-    });
-
-    // 既存の録音をクリーンアップ
-    if (state.recording) {
-        try {
-            await state.recording.stopAndUnloadAsync();
-        } catch (e) {
-            // 既に停止済みの場合は無視
+    try {
+        // init
+        if (!isInitialized) {
+            AudioRecord.init({
+                sampleRate: 16000,
+                channels: 1,
+                bitsPerSample: 16,
+                audioSource: 6, // VOICE_RECOGNITION
+                wavFile: 'shukatsu_interview.wav',
+            });
+            isInitialized = true;
         }
-    }
 
-    // 録音開始
-    const recording = new Audio.Recording();
-    await recording.prepareToRecordAsync(RECORDING_OPTIONS);
-    await recording.startAsync();
-    state = {
-        recording,
-        uri: null,
-        status: 'recording',
-        durationMs: 0,
-    };
+        AudioRecord.start();
+        state = {
+            uri: null,
+            status: 'recording',
+            durationMs: 0,
+        };
+    } catch (e) {
+        console.error('Failed to start recording:', e);
+        throw new Error('録音の初期化に失敗しました');
+    }
 }
 
 // 録音停止
 export async function stopRecording(): Promise<string | null> {
-    if (!state.recording || state.status !== 'recording') {
+    if (state.status !== 'recording') {
         return null;
     }
 
     try {
-        await state.recording.stopAndUnloadAsync();
-        const uri = state.recording.getURI();
+        const filePath = await AudioRecord.stop();
 
-        // オーディオモードをリセット
-        await Audio.setAudioModeAsync({
-            allowsRecordingIOS: false,
-        });
+        // 再生やWhisperのためにfile://プレフィックスを付ける
+        let finalUri = filePath;
+        if (finalUri && !finalUri.startsWith('file://') && finalUri.startsWith('/')) {
+            finalUri = 'file://' + finalUri;
+        }
 
         state = {
-            recording: null,
-            uri: uri || null,
+            uri: finalUri || null,
             status: 'stopped',
             durationMs: state.durationMs,
         };
 
-        return uri || null;
+        return finalUri || null;
     } catch (error) {
         console.error('Failed to stop recording:', error);
         state = { ...initialState };

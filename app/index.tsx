@@ -100,7 +100,6 @@ export default function HomeScreen() {
             >
                 <CompanyCard
                     company={item}
-                    onPress={() => router.push(`/${item.id}`)}
                 />
             </TouchableOpacity>
         );
