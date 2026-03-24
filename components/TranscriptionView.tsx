@@ -7,7 +7,9 @@ import {
     ActivityIndicator,
     ScrollView,
     Alert,
+    TextInput,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { Audio } from 'expo-av';
 import { startRecording, stopRecording, formatDuration } from '../utils/audioRecorder';
 import { transcribeLocalAudio, initWhisper } from '../utils/whisperLocal';
@@ -226,11 +228,25 @@ export function TranscriptionView({
             {/* 結果表示 */}
             {viewState === 'result' && displayText ? (
                 <View style={styles.resultContainer}>
-                    <ScrollView style={styles.transcriptionScroll} nestedScrollEnabled>
-                        <Text style={styles.transcriptionText}>
-                            {displayText}
-                        </Text>
-                    </ScrollView>
+                    <View style={styles.transcriptionContainer}>
+                        <TextInput
+                            style={styles.transcriptionInput}
+                            multiline
+                            value={displayText}
+                            onChangeText={setDisplayText}
+                            onBlur={() => onTranscriptionComplete(displayText)}
+                            placeholder="文字起こし結果がここに入ります..."
+                        />
+                        <TouchableOpacity
+                            style={styles.copyButton}
+                            onPress={async () => {
+                                await Clipboard.setStringAsync(displayText);
+                                Alert.alert('✅ コピー完了', '文字起こしのテキストをクリップボードにコピーしました');
+                            }}
+                        >
+                            <Text style={styles.copyButtonText}>📋 コピー</Text>
+                        </TouchableOpacity>
+                    </View>
                     <View style={styles.actionButtonsRow}>
                         {savedAudioUri && (
                             <TouchableOpacity
@@ -389,16 +405,33 @@ const styles = StyleSheet.create({
     resultContainer: {
         gap: 12,
     },
-    transcriptionScroll: {
-        maxHeight: 300,
+    transcriptionContainer: {
         backgroundColor: '#F9FAFB',
         borderRadius: 12,
         padding: 14,
+        position: 'relative',
     },
-    transcriptionText: {
+    transcriptionInput: {
         fontSize: 14,
         color: '#374151',
         lineHeight: 22,
+        minHeight: 120,
+        maxHeight: 300,
+        textAlignVertical: 'top',
+    },
+    copyButton: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        backgroundColor: '#E5E7EB',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+    },
+    copyButtonText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#4B5563',
     },
     reRecordButton: {
         flex: 1,
