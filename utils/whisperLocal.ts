@@ -3,11 +3,11 @@ import { documentDirectory, getInfoAsync, makeDirectoryAsync, createDownloadResu
 import { initWhisper as initWhisperRN, WhisperContext } from 'whisper.rn';
 import { Platform } from 'react-native';
 
-// モデルのダウンロードURL（日本語精度の向上と安定化のため ggml-base.bin を使用）
-const MODEL_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin';
-const MODEL_FILE_NAME = 'ggml-base.bin';
-// ggml-base.bin の期待される最小サイズ（約142MB）。破損ファイル検出に利用
-const MODEL_MIN_SIZE = 100_000_000;
+// モデルのダウンロードURL（高精度な日本語認識のため ggml-small.bin を使用）
+const MODEL_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin';
+const MODEL_FILE_NAME = 'ggml-small.bin';
+// ggml-small.bin の期待される最小サイズ（約466MB）。破損ファイル検出に利用
+const MODEL_MIN_SIZE = 400_000_000;
 
 let whisperContext: WhisperContext | null = null;
 
@@ -122,6 +122,7 @@ export async function transcribeLocalAudio(audioUri: string): Promise<string> {
         beamSize: 5,       // ビームサーチで精度向上
         bestOf: 5,         // 候補数を増やして精度向上
         temperature: 0.0,  // 決定論的にすることでハルシネーションを抑制
+        prompt: "これは就職活動の面接の録音です。自然な日本語で文字起こししてください。", // コンテキストを与えて日本語精度を向上
     });
 
     const result = await promise;
