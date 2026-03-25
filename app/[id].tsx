@@ -88,6 +88,7 @@ export default function CompanyDetailScreen() {
             }
         } catch (error) {
             console.error('Failed to update company:', error);
+            Alert.alert('エラー', '企業情報の更新に失敗しました');
         }
     };
 
@@ -115,9 +116,15 @@ export default function CompanyDetailScreen() {
     };
 
     const openMyPage = () => {
-        if (company?.myPageUrl) {
-            Linking.openURL(company.myPageUrl);
+        const url = company?.myPageUrl;
+        if (!url) return;
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            Alert.alert('エラー', '有効なURLではありません');
+            return;
         }
+        Linking.openURL(url).catch(() => {
+            Alert.alert('エラー', 'URLを開けませんでした');
+        });
     };
 
     const handleAddEvent = async (input: SelectionEventInput) => {
@@ -126,6 +133,7 @@ export default function CompanyDetailScreen() {
             await loadData(); // リロードして最新状態を取得
         } catch (error) {
             console.error('Failed to add event:', error);
+            Alert.alert('エラー', '選考イベントの追加に失敗しました');
         }
     };
 
@@ -136,6 +144,7 @@ export default function CompanyDetailScreen() {
             await loadData();
         } catch (error) {
             console.error('Failed to update event:', error);
+            Alert.alert('エラー', '選考イベントの更新に失敗しました');
         }
     };
 
@@ -147,6 +156,7 @@ export default function CompanyDetailScreen() {
             await loadData();
         } catch (error) {
             console.error('Failed to delete event:', error);
+            Alert.alert('エラー', '選考イベントの削除に失敗しました');
         }
     };
 
@@ -288,6 +298,7 @@ export default function CompanyDetailScreen() {
                             if (updated) setCompany(updated);
                         } catch (error) {
                             console.error('Failed to save transcription:', error);
+                            Alert.alert('エラー', '文字起こしの保存に失敗しました');
                         }
                     }}
                 />

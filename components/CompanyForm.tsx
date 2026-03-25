@@ -98,8 +98,11 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
     const handleEntryDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
         setShowEntryDatePicker(Platform.OS === 'ios');
         if (selectedDate && event.type !== 'dismissed') {
-            const dateString = selectedDate.toISOString().split('T')[0];
-            setEntryDate(dateString);
+            // toISOString()はUTC変換するため日本(UTC+9)では日付が1日ズレる。ローカル日付を使用
+            const year = selectedDate.getFullYear();
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const day = String(selectedDate.getDate()).padStart(2, '0');
+            setEntryDate(`${year}-${month}-${day}`);
         }
         if (Platform.OS === 'android') {
             setShowEntryDatePicker(false);

@@ -5,7 +5,11 @@ export function formatDate(date: Date | string | null): string | null {
     if (!date) return null;
     const d = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(d.getTime())) return null;
-    return d.toISOString().split('T')[0];
+    // toISOString()はUTC変換するため日本(UTC+9)では日付が1日ズレる。ローカル日付を使用
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 // 日付を表示用にフォーマット（例: 2024/01/28）

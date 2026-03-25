@@ -3,11 +3,11 @@ import { documentDirectory, getInfoAsync, makeDirectoryAsync, createDownloadResu
 import { initWhisper as initWhisperRN, WhisperContext } from 'whisper.rn';
 import { Platform } from 'react-native';
 
-// モデルのダウンロードURL（高精度な日本語認識のため ggml-small.bin を使用）
-const MODEL_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin';
-const MODEL_FILE_NAME = 'ggml-small.bin';
-// ggml-small.bin の期待される最小サイズ（約466MB）。破損ファイル検出に利用
-const MODEL_MIN_SIZE = 400_000_000;
+// モデルのダウンロードURL（高精度な日本語認識のため ggml-medium.bin を使用）
+const MODEL_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin';
+const MODEL_FILE_NAME = 'ggml-medium.bin';
+// ggml-medium.bin の期待される最小サイズ（約1.5GB）。破損ファイル検出に利用
+const MODEL_MIN_SIZE = 1_400_000_000;
 
 let whisperContext: WhisperContext | null = null;
 

@@ -161,7 +161,8 @@ export function TranscriptionView({
                 clearInterval(intervalRef.current);
             }
             if (soundRef.current) {
-                soundRef.current.unloadAsync();
+                // cleanup関数はasyncにできないためPromiseエラーを抑制
+                soundRef.current.unloadAsync().catch(() => {});
             }
         };
     }, []);
