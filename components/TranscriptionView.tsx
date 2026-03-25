@@ -35,6 +35,7 @@ export function TranscriptionView({
     const [progressText, setProgressText] = useState('');
     const [savedAudioUri, setSavedAudioUri] = useState<string | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [isEditingText, setIsEditingText] = useState(false);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const soundRef = useRef<Audio.Sound | null>(null);
 
@@ -229,23 +230,38 @@ export function TranscriptionView({
             {/* 結果表示 */}
             {viewState === 'result' && displayText ? (
                 <View style={styles.resultContainer}>
-                    <View style={styles.transcriptionContainer}>
+                    <View style={[styles.transcriptionContainer, isEditingText && styles.transcriptionContainerFocused]}>
+                        <View style={styles.transcriptionHeader}>
+                            <Text style={styles.transcriptionLabel}>
+                                {isEditingText ? '✏️ 編集中' : '📝 タップして編集・長押しでコピー'}
+                            </Text>
+                        </View>
                         <TextInput
                             style={styles.transcriptionInput}
                             multiline
                             value={displayText}
                             onChangeText={setDisplayText}
-                            onBlur={() => onTranscriptionComplete(displayText)}
+                            onFocus={() => setIsEditingText(true)}
+                            onBlur={() => {
+                                setIsEditingText(false);
+                                onTranscriptionComplete(displayText);
+                            }}
+                            onLongPress={async () => {
+                                await Clipboard.setStringAsync(displayText);
+                                Alert.alert('✅ コピー完了', '全文をクリップボードにコピーしました');
+                            }}
                             placeholder="文字起こし結果がここに入ります..."
+                            textAlignVertical="top"
+                            scrollEnabled={false}
                         />
                         <TouchableOpacity
                             style={styles.copyButton}
                             onPress={async () => {
                                 await Clipboard.setStringAsync(displayText);
-                                Alert.alert('✅ コピー完了', '文字起こしのテキストをクリップボードにコピーしました');
+                                Alert.alert('✅ コピー完了', '全文をクリップボードにコピーしました');
                             }}
                         >
-                            <Text style={styles.copyButtonText}>📋 コピー</Text>
+                            <Text style={styles.copyButtonText}>📋 全文コピー</Text>
                         </TouchableOpacity>
                     </View>
                     <View style={styles.actionButtonsRow}>
@@ -409,8 +425,23 @@ const styles = StyleSheet.create({
     transcriptionContainer: {
         backgroundColor: '#F9FAFB',
         borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
         padding: 14,
-        position: 'relative',
+        gap: 8,
+    },
+    transcriptionContainerFocused: {
+        borderColor: '#4F46E5',
+        backgroundColor: '#FAFAFE',
+    },
+    transcriptionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    transcriptionLabel: {
+        fontSize: 11,
+        color: '#9CA3AF',
+        fontWeight: '500',
     },
     transcriptionInput: {
         fontSize: 14,
@@ -419,11 +450,10 @@ const styles = StyleSheet.create({
         minHeight: 120,
         maxHeight: 300,
         textAlignVertical: 'top',
+        padding: 0,
     },
     copyButton: {
-        position: 'absolute',
-        top: 8,
-        right: 8,
+        alignSelf: 'flex-end',
         backgroundColor: '#E5E7EB',
         paddingHorizontal: 12,
         paddingVertical: 6,
