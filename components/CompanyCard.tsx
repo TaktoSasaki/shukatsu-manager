@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Company } from '../types/company';
 import { StatusBadge } from './StatusBadge';
-import { formatDisplayDate, formatDisplayDateTime, extractTimeFromDateTime, getDaysRemaining } from '../utils/date';
+import { formatDisplayDate, getDaysRemaining } from '../utils/date';
 
 interface CompanyCardProps {
     company: Company;
@@ -33,7 +33,7 @@ export const CompanyCard = React.memo(function CompanyCard({ company }: CompanyC
                         <Text style={styles.label}>次回面接</Text>
                         <View style={styles.dateContainer}>
                             <Text style={styles.value}>
-                                {formatDisplayDateTime(company.nextInterviewDate)}
+                                {formatDisplayDate(company.nextInterviewDate)}
                             </Text>
                             {daysRemaining !== null && (
                                 <Text style={[

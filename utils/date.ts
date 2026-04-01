@@ -13,11 +13,13 @@ export function formatDate(date: Date | string | null): string | null {
 }
 
 // 日付を表示用にフォーマット（例: 2024/01/28）
+// YYYY-MM-DD 形式をローカル時刻として解析（new Date('YYYY-MM-DD') はUTC解釈でズレるため）
 export function formatDisplayDate(date: string | null): string {
     if (!date) return '-';
-    const d = new Date(date);
-    if (isNaN(d.getTime())) return '-';
-    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+    const parts = date.split('-').map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return '-';
+    const [year, month, day] = parts;
+    return `${year}/${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}`;
 }
 
 // 日時を表示用にフォーマット（例: 2024/01/28 14:00）
