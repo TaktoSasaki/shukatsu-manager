@@ -6,8 +6,8 @@ import { Platform } from 'react-native';
 // モデルのダウンロードURL（ggml-small.bin を使用）
 const MODEL_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin';
 const MODEL_FILE_NAME = 'ggml-small.bin';
-// ggml-small.bin の期待される最小サイズ（約460MB）。破損ファイル検出に利用
-const MODEL_MIN_SIZE = 400_000_000;
+// ggml-small.bin の期待される最小サイズ（約466MB）。破損ファイル検出に利用
+const MODEL_MIN_SIZE = 450_000_000;
 
 let whisperContext: WhisperContext | null = null;
 let initializingPromise: Promise<void> | null = null;

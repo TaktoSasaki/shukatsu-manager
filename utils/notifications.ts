@@ -50,10 +50,12 @@ export async function scheduleInterviewNotification(
         // 既存の通知をキャンセル
         await cancelNotificationForCompany(companyId);
 
-        const interviewDate = new Date(interviewDateTime);
-        if (isNaN(interviewDate.getTime())) {
+        // YYYY-MM-DD形式をローカル時刻として解析（new Date('YYYY-MM-DD')はUTC解釈でズレる）
+        const parts = interviewDateTime.split('-').map(Number);
+        if (parts.length !== 3 || parts.some(isNaN)) {
             return null;
         }
+        const interviewDate = new Date(parts[0], parts[1] - 1, parts[2]);
 
         // 面接当日の朝7時に設定
         const notificationTime = new Date(interviewDate);

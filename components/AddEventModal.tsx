@@ -97,8 +97,11 @@ export function AddEventModal({
             setShowDatePicker(false);
         }
         if (selectedDate && event.type !== 'dismissed') {
-            const dateString = selectedDate.toISOString().split('T')[0];
-            setEventDate(dateString);
+            // toISOString()はUTC変換で日付がズレるためローカル日付を使用
+            const year = selectedDate.getFullYear();
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const day = String(selectedDate.getDate()).padStart(2, '0');
+            setEventDate(`${year}-${month}-${day}`);
         }
     };
 

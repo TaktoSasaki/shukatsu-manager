@@ -5,8 +5,8 @@ export interface Company {
   companyName: string;
   loginId: string | null; // マイページのログインID
   myPageUrl: string | null;
-  entryDate: string | null; // ISO8601形式
-  nextInterviewDate: string | null; // ISO8601形式
+  entryDate: string | null; // YYYY-MM-DD形式
+  nextInterviewDate: string | null; // YYYY-MM-DD形式
   position: string | null; // 応募職種
   esContent: string | null; // 使用したES
   motivation: string | null; // 志望動機
