@@ -40,18 +40,22 @@ export function AddEventModal({
 
     const isEditing = !!initialEvent;
 
-    // initialEvent が変わった場合にフォーム状態を同期
+    // 編集対象のイベントが変わった場合にフォームを同期
     useEffect(() => {
         if (initialEvent) {
             setEventType(initialEvent.eventType);
             setEventDate(initialEvent.eventDate || '');
             setResult(initialEvent.result);
             setNotes(initialEvent.notes || '');
-        } else if (visible) {
-            // 新規追加モードで開かれた場合はリセット
+        }
+    }, [initialEvent]);
+
+    // 新規追加モードで開かれた場合はフォームをリセット
+    useEffect(() => {
+        if (visible && !initialEvent) {
             resetForm();
         }
-    }, [initialEvent, visible]);
+    }, [visible]);
 
     const handleSubmit = () => {
         onSubmit({

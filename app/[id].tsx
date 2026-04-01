@@ -108,6 +108,7 @@ export default function CompanyDetailScreen() {
                             router.back();
                         } catch (error) {
                             console.error('Failed to delete company:', error);
+                            Alert.alert('エラー', '企業の削除に失敗しました');
                         }
                     },
                 },

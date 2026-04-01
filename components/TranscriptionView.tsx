@@ -38,12 +38,14 @@ export function TranscriptionView({
     const [isEditingText, setIsEditingText] = useState(false);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const soundRef = useRef<Audio.Sound | null>(null);
+    const isInitialized = useRef(false);
 
-    // 既存データ反映
+    // 既存データを初回のみ反映（編集中に上書きしない）
     useEffect(() => {
-        if (existingTranscription) {
+        if (!isInitialized.current && existingTranscription) {
             setDisplayText(existingTranscription);
             setViewState('result');
+            isInitialized.current = true;
         }
     }, [existingTranscription]);
 
@@ -233,7 +235,7 @@ export function TranscriptionView({
                     <View style={[styles.transcriptionContainer, isEditingText && styles.transcriptionContainerFocused]}>
                         <View style={styles.transcriptionHeader}>
                             <Text style={styles.transcriptionLabel}>
-                                {isEditingText ? '✏️ 編集中' : '📝 タップして編集・長押しでコピー'}
+                                {isEditingText ? '✏️ 編集中' : '📝 タップして編集'}
                             </Text>
                         </View>
                         <TextInput
@@ -245,10 +247,6 @@ export function TranscriptionView({
                             onBlur={() => {
                                 setIsEditingText(false);
                                 onTranscriptionComplete(displayText);
-                            }}
-                            onLongPress={async () => {
-                                await Clipboard.setStringAsync(displayText);
-                                Alert.alert('✅ コピー完了', '全文をクリップボードにコピーしました');
                             }}
                             placeholder="文字起こし結果がここに入ります..."
                             textAlignVertical="top"

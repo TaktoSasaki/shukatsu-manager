@@ -54,6 +54,7 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
             setCustomStatuses(statuses);
         } catch (error) {
             console.error('Failed to load custom statuses:', error);
+            Alert.alert('エラー', 'ステータスの読み込みに失敗しました');
         }
     };
 
@@ -112,8 +113,11 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
     const handleInterviewDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
         setShowInterviewDatePicker(Platform.OS === 'ios');
         if (selectedDate && event.type !== 'dismissed') {
-            // ISO8601形式で日時を保存
-            setNextInterviewDate(selectedDate.toISOString());
+            // ローカル日付を使用（toISOString()はUTC変換でズレる）
+            const year = selectedDate.getFullYear();
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const day = String(selectedDate.getDate()).padStart(2, '0');
+            setNextInterviewDate(`${year}-${month}-${day}`);
         }
         if (Platform.OS === 'android') {
             setShowInterviewDatePicker(false);

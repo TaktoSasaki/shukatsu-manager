@@ -3,13 +3,14 @@ import { documentDirectory, getInfoAsync, makeDirectoryAsync, createDownloadResu
 import { initWhisper as initWhisperRN, WhisperContext } from 'whisper.rn';
 import { Platform } from 'react-native';
 
-// モデルのダウンロードURL（高精度な日本語認識のため ggml-medium.bin を使用）
-const MODEL_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin';
-const MODEL_FILE_NAME = 'ggml-medium.bin';
-// ggml-medium.bin の期待される最小サイズ（約1.5GB）。破損ファイル検出に利用
-const MODEL_MIN_SIZE = 1_400_000_000;
+// モデルのダウンロードURL（ggml-small.bin を使用）
+const MODEL_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin';
+const MODEL_FILE_NAME = 'ggml-small.bin';
+// ggml-small.bin の期待される最小サイズ（約460MB）。破損ファイル検出に利用
+const MODEL_MIN_SIZE = 400_000_000;
 
 let whisperContext: WhisperContext | null = null;
+let initializingPromise: Promise<void> | null = null;
 
 /**
  * モデルがローカルにあるか確認し、無ければダウンロードする
@@ -79,20 +80,32 @@ export async function initWhisper(onProgress?: (progress: number) => void): Prom
     if (whisperContext) {
         return; // 既に初期化済み
     }
-
-    // 1. モデルの準備
-    const modelPath = await downloadModel(onProgress);
-
-    // 2. Whisperコンテキスト作成
-    // file:// プレフィックスを除去（whisper.rn はローカルパスを期待する）
-    let cleanPath = modelPath;
-    if (cleanPath.startsWith('file://')) {
-        cleanPath = cleanPath.slice(7);
+    // 初期化中の場合は同じPromiseを返して競合状態を防ぐ
+    if (initializingPromise) {
+        return initializingPromise;
     }
 
-    whisperContext = await initWhisperRN({
-        filePath: cleanPath,
-    });
+    initializingPromise = (async () => {
+        try {
+            // 1. モデルの準備
+            const modelPath = await downloadModel(onProgress);
+
+            // 2. Whisperコンテキスト作成
+            // file:// プレフィックスを除去（whisper.rn はローカルパスを期待する）
+            let cleanPath = modelPath;
+            if (cleanPath.startsWith('file://')) {
+                cleanPath = cleanPath.slice(7);
+            }
+
+            whisperContext = await initWhisperRN({
+                filePath: cleanPath,
+            });
+        } finally {
+            initializingPromise = null;
+        }
+    })();
+
+    return initializingPromise;
 }
 
 /**
