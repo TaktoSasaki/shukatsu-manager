@@ -25,7 +25,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.shukatsumanager",
-      "permissions": ["RECORD_AUDIO"]
+      "permissions": ["RECORD_AUDIO", "READ_CALENDAR", "WRITE_CALENDAR"]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -42,7 +42,13 @@
           "microphonePermission": "面接の音声を録音して文字起こしするためにマイクへのアクセスが必要です。"
         }
       ],
-      "expo-file-system"
+      "expo-file-system",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "面接予定をカレンダーに自動登録するためにカレンダーへのアクセスが必要です。"
+        }
+      ]
     ]
   }
 }

@@ -14,12 +14,13 @@ export interface Company {
   transcription: string | null; // 面接録音の文字起こし
   status: string; // カスタム可能なステータス
   sortOrder: number; // 手動並び替え用
+  calendarEventId: string | null; // Googleカレンダーイベントの識別子
   createdAt: string;
   updatedAt: string;
 }
 
-// 新規作成時の入力データ（IDと日時、ソート順は自動生成）
-export type CompanyInput = Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'sortOrder'>;
+// 新規作成時の入力データ（IDと日時、ソート順、カレンダーIDは自動生成）
+export type CompanyInput = Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'sortOrder' | 'calendarEventId'>;
 
 // 更新時の入力データ（部分更新可能）
 export type CompanyUpdate = Partial<CompanyInput>;

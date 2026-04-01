@@ -35,6 +35,7 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void
       notes TEXT,
       status TEXT NOT NULL DEFAULT '未エントリー',
       sortOrder INTEGER NOT NULL DEFAULT 0,
+      calendarEventId TEXT,
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL
     );
@@ -57,6 +58,13 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void
   // transcriptionカラムが存在しない場合は追加（マイグレーション）
   try {
     await database.execAsync(`ALTER TABLE companies ADD COLUMN transcription TEXT;`);
+  } catch (e) {
+    // カラムが既に存在する場合は無視
+  }
+
+  // calendarEventIdカラムが存在しない場合は追加（マイグレーション）
+  try {
+    await database.execAsync(`ALTER TABLE companies ADD COLUMN calendarEventId TEXT;`);
   } catch (e) {
     // カラムが既に存在する場合は無視
   }

@@ -4,6 +4,7 @@ import { Company, CompanyInput, CompanyUpdate } from '../types/company';
 import { getCurrentISOString } from '../utils/date';
 import { DEFAULT_STATUS_LIST, FREE_PLAN_COMPANY_LIMIT } from '../constants/status';
 import { scheduleInterviewNotification, cancelNotificationForCompany } from '../utils/notifications';
+import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from '../utils/calendar';
 
 // ソートタイプ
 export type SortType = 'manual' | 'status-asc' | 'status-desc' | 'interview';
@@ -101,15 +102,29 @@ export async function createCompany(input: CompanyInput): Promise<Company> {
         ]
     );
 
-    // 面接日が設定されている場合、通知をスケジュール
+    // 面接日が設定されている場合、通知・カレンダーをセットアップ
+    let calendarEventId: string | null = null;
     if (input.nextInterviewDate) {
         await scheduleInterviewNotification(id, input.companyName, input.nextInterviewDate);
+        calendarEventId = await createCalendarEvent(input.companyName, input.nextInterviewDate);
+        if (calendarEventId) {
+            try {
+                await db.runAsync(
+                    'UPDATE companies SET calendarEventId = ? WHERE id = ?',
+                    [calendarEventId, id]
+                );
+            } catch (e) {
+                console.error('Failed to save calendarEventId:', e);
+                calendarEventId = null;
+            }
+        }
     }
 
     return {
         ...input,
         id,
         sortOrder: newSortOrder,
+        calendarEventId,
         createdAt: now,
         updatedAt: now,
     };
@@ -160,11 +175,31 @@ export async function updateCompany(id: string, updates: CompanyUpdate): Promise
         ]
     );
 
-    // 面接日の通知を更新
+    // 面接日の通知・カレンダーを更新
     if (updated.nextInterviewDate) {
         await scheduleInterviewNotification(id, updated.companyName, updated.nextInterviewDate);
+        const newEventId = await updateCalendarEvent(
+            existing.calendarEventId,
+            updated.companyName,
+            updated.nextInterviewDate
+        );
+        if (newEventId !== existing.calendarEventId) {
+            updated.calendarEventId = newEventId;
+            await db.runAsync(
+                'UPDATE companies SET calendarEventId = ? WHERE id = ?',
+                [newEventId, id]
+            );
+        }
     } else {
         await cancelNotificationForCompany(id);
+        if (existing.calendarEventId) {
+            await deleteCalendarEvent(existing.calendarEventId);
+            updated.calendarEventId = null;
+            await db.runAsync(
+                'UPDATE companies SET calendarEventId = NULL WHERE id = ?',
+                [id]
+            );
+        }
     }
 
     return updated;
@@ -173,8 +208,12 @@ export async function updateCompany(id: string, updates: CompanyUpdate): Promise
 // 企業を削除
 export async function deleteCompany(id: string): Promise<boolean> {
     const db = await getDatabase();
-    // 通知をキャンセルしてから削除
+    // 通知・カレンダーをキャンセルしてから削除
     await cancelNotificationForCompany(id);
+    const existing = await getCompanyById(id);
+    if (existing?.calendarEventId) {
+        await deleteCalendarEvent(existing.calendarEventId);
+    }
     const result = await db.runAsync('DELETE FROM companies WHERE id = ?', [id]);
     return result.changes > 0;
 }
