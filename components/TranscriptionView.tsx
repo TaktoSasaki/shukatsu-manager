@@ -230,7 +230,7 @@ export function TranscriptionView({
             )}
 
             {/* 結果表示 */}
-            {viewState === 'result' && displayText ? (
+            {viewState === 'result' ? (
                 <View style={styles.resultContainer}>
                     <View style={[styles.transcriptionContainer, isEditingText && styles.transcriptionContainerFocused]}>
                         <View style={styles.transcriptionHeader}>
