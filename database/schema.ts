@@ -5,7 +5,6 @@ const DATABASE_NAME = 'shukatsu.db';
 let db: SQLite.SQLiteDatabase | null = null;
 let dbInitPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
-// データベース接続を取得（競合状態を防ぐためPromiseをキャッシュ）
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (db) return db;
   if (!dbInitPromise) {
@@ -19,13 +18,14 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   return dbInitPromise;
 }
 
-// テーブル作成
 async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void> {
-  // 企業テーブル
+  await database.execAsync('PRAGMA foreign_keys = ON;');
+
   await database.execAsync(`
     CREATE TABLE IF NOT EXISTS companies (
       id TEXT PRIMARY KEY NOT NULL,
       companyName TEXT NOT NULL,
+      loginId TEXT,
       myPageUrl TEXT,
       entryDate TEXT,
       nextInterviewDate TEXT,
@@ -33,6 +33,7 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void
       esContent TEXT,
       motivation TEXT,
       notes TEXT,
+      transcription TEXT,
       status TEXT NOT NULL DEFAULT '未エントリー',
       sortOrder INTEGER NOT NULL DEFAULT 0,
       calendarEventId TEXT,
@@ -41,35 +42,21 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void
     );
   `);
 
-  // sortOrderカラムが存在しない場合は追加（マイグレーション）
-  try {
-    await database.execAsync(`ALTER TABLE companies ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0;`);
-  } catch (e) {
-    // カラムが既に存在する場合は無視
+  const migrationStatements = [
+    'ALTER TABLE companies ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0;',
+    'ALTER TABLE companies ADD COLUMN loginId TEXT;',
+    'ALTER TABLE companies ADD COLUMN transcription TEXT;',
+    'ALTER TABLE companies ADD COLUMN calendarEventId TEXT;',
+  ];
+
+  for (const statement of migrationStatements) {
+    try {
+      await database.execAsync(statement);
+    } catch {
+      // Column already exists.
+    }
   }
 
-  // loginIdカラムが存在しない場合は追加（マイグレーション）
-  try {
-    await database.execAsync(`ALTER TABLE companies ADD COLUMN loginId TEXT;`);
-  } catch (e) {
-    // カラムが既に存在する場合は無視
-  }
-
-  // transcriptionカラムが存在しない場合は追加（マイグレーション）
-  try {
-    await database.execAsync(`ALTER TABLE companies ADD COLUMN transcription TEXT;`);
-  } catch (e) {
-    // カラムが既に存在する場合は無視
-  }
-
-  // calendarEventIdカラムが存在しない場合は追加（マイグレーション）
-  try {
-    await database.execAsync(`ALTER TABLE companies ADD COLUMN calendarEventId TEXT;`);
-  } catch (e) {
-    // カラムが既に存在する場合は無視
-  }
-
-  // カスタムステータステーブル（ユーザーが追加したステータスを保存）
   await database.execAsync(`
     CREATE TABLE IF NOT EXISTS custom_statuses (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,7 +67,6 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void
     );
   `);
 
-  // 選考イベントテーブル（選考履歴を記録）
   await database.execAsync(`
     CREATE TABLE IF NOT EXISTS selection_events (
       id TEXT PRIMARY KEY NOT NULL,
@@ -95,7 +81,6 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void
   `);
 }
 
-// データベースをリセット（開発用）
 export async function resetDatabase(): Promise<void> {
   const database = await getDatabase();
   await database.execAsync('DROP TABLE IF EXISTS selection_events');

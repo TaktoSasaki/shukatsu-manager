@@ -1,27 +1,25 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    RefreshControl,
     ActivityIndicator,
     Modal,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import DraggableFlatList, {
-    RenderItemParams
-} from 'react-native-draggable-flatlist';
-import { Company } from '../types/company';
-import { getAllCompanies, reorderCompanies, SortType } from '../database/repository';
-import { CompanyCard } from '../components/CompanyCard';
 import * as Haptics from 'expo-haptics';
+import { useFocusEffect, useRouter } from 'expo-router';
+import DraggableFlatList, { type RenderItemParams } from 'react-native-draggable-flatlist';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { CompanyCard } from '../components/CompanyCard';
+import { getAllCompanies, reorderCompanies, type SortType } from '../database/repository';
+import type { Company } from '../types/company';
 
-const SORT_OPTIONS: { type: SortType; label: string }[] = [
-    { type: 'manual', label: '手動（ドラッグで並べ替え）' },
-    { type: 'status-asc', label: 'ステータス順 ↑' },
-    { type: 'status-desc', label: 'ステータス順 ↓' },
+const SORT_OPTIONS: Array<{ type: SortType; label: string }> = [
+    { type: 'manual', label: '手動順' },
+    { type: 'status-asc', label: 'ステータス昇順' },
+    { type: 'status-desc', label: 'ステータス降順' },
     { type: 'interview', label: '面接日順' },
 ];
 
@@ -32,11 +30,11 @@ export default function HomeScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [sortType, setSortType] = useState<SortType>('manual');
     const [showSortModal, setShowSortModal] = useState(false);
+    const isFirstRender = useRef(true);
 
     const loadCompanies = useCallback(async () => {
         try {
-            const data = await getAllCompanies(sortType);
-            setCompanies(data);
+            setCompanies(await getAllCompanies(sortType));
         } catch (error) {
             console.error('Failed to load companies:', error);
         } finally {
@@ -47,63 +45,50 @@ export default function HomeScreen() {
 
     useFocusEffect(
         useCallback(() => {
-            loadCompanies();
+            void loadCompanies();
         }, [loadCompanies])
     );
 
-    // sortType が変わった時に即座にリロード
-    const isFirstRender = useRef(true);
     useEffect(() => {
         if (isFirstRender.current) {
             isFirstRender.current = false;
             return;
         }
-        loadCompanies();
-    }, [sortType]);
+        void loadCompanies();
+    }, [loadCompanies]);
 
-    const handleRefresh = async () => {
+    async function handleRefresh(): Promise<void> {
         setRefreshing(true);
         await loadCompanies();
-    };
+    }
 
-    const handleDragEnd = async ({ data }: { data: Company[] }) => {
+    async function handleDragEnd({ data }: { data: Company[] }): Promise<void> {
         const previousData = companies;
         setCompanies(data);
-        // データベースに新しい順序を保存
+
         try {
-            const orderedIds = data.map(c => c.id);
-            await reorderCompanies(orderedIds);
+            await reorderCompanies(data.map((company) => company.id));
         } catch (error) {
-            // 失敗時はUIを元の状態に戻す
             console.error('Failed to reorder companies:', error);
             setCompanies(previousData);
         }
-    };
+    }
 
-    const handleSortChange = (newSortType: SortType) => {
-        setSortType(newSortType);
-        setShowSortModal(false);
-    };
-
-    const renderItem = useCallback(({ item, drag, isActive }: RenderItemParams<Company>) => {
-        return (
-            <TouchableOpacity
-                onLongPress={sortType === 'manual' ? drag : undefined}
-                onPress={() => router.push(`/${item.id}`)}
-                disabled={isActive}
-                activeOpacity={0.9}
-                delayLongPress={200}
-                style={{
-                    opacity: isActive ? 0.9 : 1,
-                    transform: [{ scale: isActive ? 1.02 : 1 }],
-                }}
-            >
-                <CompanyCard
-                    company={item}
-                />
-            </TouchableOpacity>
-        );
-    }, [router, sortType]);
+    const renderItem = useCallback(({ item, drag, isActive }: RenderItemParams<Company>) => (
+        <TouchableOpacity
+            onLongPress={sortType === 'manual' ? drag : undefined}
+            onPress={() => router.push(`/${item.id}`)}
+            disabled={isActive}
+            activeOpacity={0.9}
+            delayLongPress={200}
+            style={{
+                opacity: isActive ? 0.9 : 1,
+                transform: [{ scale: isActive ? 1.02 : 1 }],
+            }}
+        >
+            <CompanyCard company={item} />
+        </TouchableOpacity>
+    ), [router, sortType]);
 
     if (loading) {
         return (
@@ -117,10 +102,10 @@ export default function HomeScreen() {
         <SafeAreaView style={styles.container} edges={['bottom']}>
             {companies.length === 0 ? (
                 <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyIcon}>📋</Text>
+                    <Text style={styles.emptyIcon}>🏢</Text>
                     <Text style={styles.emptyTitle}>まだ企業が登録されていません</Text>
                     <Text style={styles.emptySubtitle}>
-                        右下の「+」ボタンから{'\n'}企業を追加しましょう
+                        右下のボタンから企業を追加してください。
                     </Text>
                 </View>
             ) : (
@@ -129,48 +114,37 @@ export default function HomeScreen() {
                     keyExtractor={(item) => item.id}
                     renderItem={renderItem}
                     onDragEnd={handleDragEnd}
-                    onDragBegin={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                    onDragBegin={() => {
+                        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
                     contentContainerStyle={styles.list}
                     activationDistance={5}
                     autoscrollThreshold={100}
                     autoscrollSpeed={200}
                     dragItemOverflow={false}
                     containerStyle={{ flex: 1 }}
-                    refreshControl={
+                    refreshControl={(
                         <RefreshControl
                             refreshing={refreshing}
-                            onRefresh={handleRefresh}
+                            onRefresh={() => void handleRefresh()}
                             tintColor="#4F46E5"
                         />
-                    }
-                    ListHeaderComponent={
+                    )}
+                    ListHeaderComponent={(
                         <View style={styles.header}>
-                            <Text style={styles.headerText}>
-                                {companies.length}社を管理中
-                            </Text>
-                            <TouchableOpacity
-                                style={styles.sortButton}
-                                onPress={() => setShowSortModal(true)}
-                            >
-                                <Text style={styles.sortButtonText}>
-                                    並べ替え
-                                </Text>
+                            <Text style={styles.headerText}>{companies.length}社を管理中</Text>
+                            <TouchableOpacity style={styles.sortButton} onPress={() => setShowSortModal(true)}>
+                                <Text style={styles.sortButtonText}>並び替え</Text>
                             </TouchableOpacity>
                         </View>
-                    }
+                    )}
                 />
             )}
 
-            {/* FAB */}
-            <TouchableOpacity
-                style={styles.fab}
-                onPress={() => router.push('/add')}
-                activeOpacity={0.8}
-            >
-                <Text style={styles.fabIcon}>＋</Text>
+            <TouchableOpacity style={styles.fab} onPress={() => router.push('/add')} activeOpacity={0.8}>
+                <Text style={styles.fabIcon}>+</Text>
             </TouchableOpacity>
 
-            {/* Sort Modal */}
             <Modal
                 visible={showSortModal}
                 animationType="slide"
@@ -180,36 +154,31 @@ export default function HomeScreen() {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>並べ替え</Text>
+                            <Text style={styles.modalTitle}>並び替え</Text>
                             <TouchableOpacity onPress={() => setShowSortModal(false)}>
                                 <Text style={styles.modalClose}>閉じる</Text>
                             </TouchableOpacity>
                         </View>
+
                         {SORT_OPTIONS.map((option) => (
                             <TouchableOpacity
                                 key={option.type}
-                                style={[
-                                    styles.sortOption,
-                                    sortType === option.type && styles.sortOptionSelected,
-                                ]}
-                                onPress={() => handleSortChange(option.type)}
+                                style={[styles.sortOption, sortType === option.type && styles.sortOptionSelected]}
+                                onPress={() => {
+                                    setSortType(option.type);
+                                    setShowSortModal(false);
+                                }}
                             >
-                                <Text style={[
-                                    styles.sortOptionText,
-                                    sortType === option.type && styles.sortOptionTextSelected,
-                                ]}>
+                                <Text style={[styles.sortOptionText, sortType === option.type && styles.sortOptionTextSelected]}>
                                     {option.label}
                                 </Text>
-                                {sortType === option.type && (
-                                    <Text style={styles.checkmark}>✓</Text>
-                                )}
+                                {sortType === option.type ? <Text style={styles.checkmark}>✓</Text> : null}
                             </TouchableOpacity>
                         ))}
-                        {sortType === 'manual' && (
-                            <Text style={styles.sortHint}>
-                                💡 カードを長押しして上下にドラッグ
-                            </Text>
-                        )}
+
+                        {sortType === 'manual' ? (
+                            <Text style={styles.sortHint}>カードを長押しすると手動で並び替えできます。</Text>
+                        ) : null}
                     </View>
                 </View>
             </Modal>

@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Modal,
-    View,
+    StyleSheet,
     Text,
     TouchableOpacity,
-    StyleSheet,
+    View,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
@@ -18,23 +18,20 @@ export function QRScannerModal({ visible, onScan, onClose }: QRScannerModalProps
     const [permission, requestPermission] = useCameraPermissions();
     const [scanned, setScanned] = useState(false);
 
-    // モーダルが開くたびにスキャン済みフラグをリセット
     useEffect(() => {
-        if (visible) setScanned(false);
+        if (visible) {
+            setScanned(false);
+        }
     }, [visible]);
 
-    const handleBarcodeScanned = ({ data }: { data: string }) => {
+    function handleBarcodeScanned({ data }: { data: string }): void {
         if (scanned) return;
         setScanned(true);
         onScan(data);
-    };
+    }
 
     return (
-        <Modal
-            visible={visible}
-            animationType="slide"
-            onRequestClose={onClose}
-        >
+        <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
             <View style={styles.container}>
                 <View style={styles.header}>
                     <Text style={styles.title}>QRコードをスキャン</Text>
@@ -44,25 +41,19 @@ export function QRScannerModal({ visible, onScan, onClose }: QRScannerModalProps
                 </View>
 
                 {!permission ? (
-                    // 権限状態の取得中
                     <View style={styles.centered}>
-                        <Text style={styles.messageText}>カメラの権限を確認中...</Text>
+                        <Text style={styles.messageText}>カメラ権限を確認しています...</Text>
                     </View>
                 ) : !permission.granted ? (
-                    // 権限未許可
                     <View style={styles.centered}>
                         <Text style={styles.messageText}>
-                            QRコードのスキャンにはカメラへのアクセスが必要です
+                            QRコードを読み取るにはカメラ権限が必要です。
                         </Text>
-                        <TouchableOpacity
-                            style={styles.permissionButton}
-                            onPress={requestPermission}
-                        >
+                        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
                             <Text style={styles.permissionButtonText}>権限を許可する</Text>
                         </TouchableOpacity>
                     </View>
                 ) : (
-                    // カメラ表示
                     <View style={styles.cameraWrapper}>
                         <CameraView
                             style={styles.camera}
@@ -72,19 +63,16 @@ export function QRScannerModal({ visible, onScan, onClose }: QRScannerModalProps
                             <View style={styles.overlay}>
                                 <View style={styles.scanFrame} />
                                 <Text style={styles.hint}>
-                                    QRコードをフレーム内に合わせてください
+                                    QRコードを枠内に合わせてください
                                 </Text>
                             </View>
                         </CameraView>
 
-                        {scanned && (
-                            <TouchableOpacity
-                                style={styles.rescanButton}
-                                onPress={() => setScanned(false)}
-                            >
+                        {scanned ? (
+                            <TouchableOpacity style={styles.rescanButton} onPress={() => setScanned(false)}>
                                 <Text style={styles.rescanButtonText}>再スキャン</Text>
                             </TouchableOpacity>
-                        )}
+                        ) : null}
                     </View>
                 )}
             </View>

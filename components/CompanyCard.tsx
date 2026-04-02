@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Company } from '../types/company';
-import { StatusBadge } from './StatusBadge';
+import { StyleSheet, Text, View } from 'react-native';
+import type { Company } from '../types/company';
 import { formatDisplayDate, getDaysRemaining } from '../utils/date';
+import { StatusBadge } from './StatusBadge';
 
 interface CompanyCardProps {
     company: Company;
@@ -21,41 +21,43 @@ export const CompanyCard = React.memo(function CompanyCard({ company }: CompanyC
             </View>
 
             <View style={styles.details}>
-                {company.position && (
+                {company.position ? (
                     <View style={styles.detailRow}>
                         <Text style={styles.label}>職種</Text>
                         <Text style={styles.value} numberOfLines={1}>{company.position}</Text>
                     </View>
-                )}
+                ) : null}
 
-                {company.nextInterviewDate && (
+                {company.nextInterviewDate ? (
                     <View style={styles.detailRow}>
                         <Text style={styles.label}>次回面接</Text>
                         <View style={styles.dateContainer}>
-                            <Text style={styles.value}>
-                                {formatDisplayDate(company.nextInterviewDate)}
-                            </Text>
-                            {daysRemaining !== null && (
-                                <Text style={[
-                                    styles.daysRemaining,
-                                    daysRemaining <= 3 ? styles.urgent : null,
-                                    daysRemaining < 0 ? styles.passed : null,
-                                ]}>
-                                    {daysRemaining === 0 ? '今日' :
-                                        daysRemaining > 0 ? `あと${daysRemaining}日` :
-                                            `${Math.abs(daysRemaining)}日前`}
+                            <Text style={styles.value}>{formatDisplayDate(company.nextInterviewDate)}</Text>
+                            {daysRemaining !== null ? (
+                                <Text
+                                    style={[
+                                        styles.daysRemaining,
+                                        daysRemaining <= 3 && daysRemaining >= 0 ? styles.urgent : null,
+                                        daysRemaining < 0 ? styles.passed : null,
+                                    ]}
+                                >
+                                    {daysRemaining === 0
+                                        ? '今日'
+                                        : daysRemaining > 0
+                                            ? `あと${daysRemaining}日`
+                                            : `${Math.abs(daysRemaining)}日経過`}
                                 </Text>
-                            )}
+                            ) : null}
                         </View>
                     </View>
-                )}
+                ) : null}
 
-                {company.entryDate && (
+                {company.entryDate ? (
                     <View style={styles.detailRow}>
                         <Text style={styles.label}>エントリー</Text>
                         <Text style={styles.value}>{formatDisplayDate(company.entryDate)}</Text>
                     </View>
-                )}
+                ) : null}
             </View>
         </View>
     );

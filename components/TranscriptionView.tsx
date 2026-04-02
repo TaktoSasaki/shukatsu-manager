@@ -1,79 +1,87 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
     ActivityIndicator,
-    ScrollView,
     Alert,
+    StyleSheet,
+    Text,
     TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Audio } from 'expo-av';
-import { startRecording, stopRecording, formatDuration } from '../utils/audioRecorder';
-import { transcribeLocalAudio, initWhisper } from '../utils/whisperLocal';
+import { formatDuration, startRecording, stopRecording } from '../utils/audioRecorder';
+import { initWhisper, transcribeLocalAudio } from '../utils/whisperLocal';
 
 interface TranscriptionViewProps {
-    companyId: string;
     existingTranscription: string | null;
-    onTranscriptionComplete: (text: string) => void;
+    onTranscriptionComplete: (text: string) => Promise<void> | void;
 }
 
 type ViewState = 'idle' | 'recording' | 'processing' | 'result';
 
 export function TranscriptionView({
-    companyId,
     existingTranscription,
     onTranscriptionComplete,
 }: TranscriptionViewProps) {
-    const [viewState, setViewState] = useState<ViewState>(
-        existingTranscription ? 'result' : 'idle'
-    );
+    const [viewState, setViewState] = useState<ViewState>(existingTranscription ? 'result' : 'idle');
     const [recordingDuration, setRecordingDuration] = useState(0);
-    const [displayText, setDisplayText] = useState(existingTranscription || '');
+    const [displayText, setDisplayText] = useState(existingTranscription ?? '');
     const [progressText, setProgressText] = useState('');
     const [savedAudioUri, setSavedAudioUri] = useState<string | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
-    const [isEditingText, setIsEditingText] = useState(false);
+    const [isDirty, setIsDirty] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const soundRef = useRef<Audio.Sound | null>(null);
-    const isInitialized = useRef(false);
 
-    // 既存データを初回のみ反映（編集中に上書きしない）
     useEffect(() => {
-        if (!isInitialized.current && existingTranscription) {
-            setDisplayText(existingTranscription);
-            setViewState('result');
-            isInitialized.current = true;
-        }
+        setDisplayText(existingTranscription ?? '');
+        setViewState(existingTranscription ? 'result' : 'idle');
+        setIsDirty(false);
     }, [existingTranscription]);
 
-    const handleStartRecording = async () => {
+    const saveButtonLabel = useMemo(() => {
+        if (isSaving) return '保存中...';
+        return isDirty ? '保存する' : '保存済み';
+    }, [isDirty, isSaving]);
+
+    async function handleStartRecording(): Promise<void> {
         try {
             await startRecording();
             setViewState('recording');
             setRecordingDuration(0);
 
-            // タイマー開始
             intervalRef.current = setInterval(() => {
-                setRecordingDuration(prev => prev + 1000);
+                setRecordingDuration((current) => current + 1000);
             }, 1000);
         } catch (error) {
-            const msg = error instanceof Error ? error.message : '録音の開始に失敗しました';
-            Alert.alert('エラー', msg);
+            const message = error instanceof Error ? error.message : '録音の開始に失敗しました';
+            Alert.alert('エラー', message);
         }
-    };
+    }
 
-    const handleStopRecording = async () => {
-        // タイマー停止
+    async function persistTranscription(text: string): Promise<void> {
+        setIsSaving(true);
+        try {
+            await onTranscriptionComplete(text);
+            setIsDirty(false);
+        } catch (error) {
+            console.error('Failed to save transcription:', error);
+            Alert.alert('エラー', '文字起こしの保存に失敗しました');
+        } finally {
+            setIsSaving(false);
+        }
+    }
+
+    async function handleStopRecording(): Promise<void> {
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
         }
 
         setViewState('processing');
-        setProgressText('録音を保存しています...');
+        setProgressText('録音ファイルを保存しています...');
 
         try {
             const uri = await stopRecording();
@@ -84,42 +92,37 @@ export function TranscriptionView({
             }
 
             setSavedAudioUri(uri);
+            setProgressText('AIモデルを準備しています...');
 
-            // ローカルでWhisperを実行
-            setProgressText('AIモデルの準備と文字起こしを実行中...\n（録音の長さにより数秒〜数十秒かかります）');
-
-            // 初回はモデルのダウンロードがあるためプログレス表示用
             await initWhisper((progress) => {
                 if (progress < 1) {
-                    setProgressText(`モデルをダウンロード中... ${Math.round(progress * 100)}%`);
+                    setProgressText(`AIモデルを読み込み中... ${Math.round(progress * 100)}%`);
                 } else {
-                    setProgressText('文字起こし処理中...');
+                    setProgressText('文字起こしを実行中...');
                 }
             });
 
             const resultText = await transcribeLocalAudio(uri);
-
             setDisplayText(resultText);
             setViewState('result');
-
-            // 親コンポーネントに通知（DBへの保存トリガー）
-            onTranscriptionComplete(resultText);
+            setIsDirty(false);
+            await persistTranscription(resultText);
         } catch (error) {
             console.error('Transcription error:', error);
-            const msg = error instanceof Error ? error.message : '文字起こしに失敗しました';
-            Alert.alert('文字起こしエラー', msg);
+            const message = error instanceof Error ? error.message : '文字起こしに失敗しました';
+            Alert.alert('文字起こしエラー', message);
             setViewState('idle');
         }
-    };
+    }
 
-    const playAudio = async () => {
+    async function playAudio(): Promise<void> {
         if (!savedAudioUri) return;
+
         try {
-            // 前の音が鳴っていれば停止・破棄
             if (soundRef.current) {
                 await soundRef.current.unloadAsync();
             }
-            // 新しく音声を読み込んで再生
+
             const { sound } = await Audio.Sound.createAsync(
                 { uri: savedAudioUri },
                 { shouldPlay: true }
@@ -132,40 +135,42 @@ export function TranscriptionView({
                     setIsPlaying(false);
                 }
             });
-        } catch (e) {
-            Alert.alert('再生エラー', '音声の再生に失敗しました。無音またはマイクが接続されていない可能性があります。');
+        } catch (error) {
+            console.error('Failed to play recording:', error);
+            Alert.alert('再生エラー', '音声の再生に失敗しました');
             setIsPlaying(false);
         }
-    };
+    }
 
-    const handleReset = () => {
+    function handleReset(): void {
         Alert.alert(
             '確認',
-            '文字起こし結果を消去して、新しく録音しますか？',
+            '文字起こし結果を破棄して、録音をやり直しますか？',
             [
                 { text: 'キャンセル', style: 'cancel' },
                 {
-                    text: '消去', style: 'destructive', onPress: () => {
+                    text: '破棄',
+                    style: 'destructive',
+                    onPress: () => {
                         setDisplayText('');
                         setViewState('idle');
                         setRecordingDuration(0);
                         setSavedAudioUri(null);
-                        onTranscriptionComplete('');
-                    }
+                        setIsDirty(false);
+                        void persistTranscription('');
+                    },
                 },
             ]
         );
-    };
+    }
 
-    // クリーンアップ
     useEffect(() => {
         return () => {
             if (intervalRef.current) {
                 clearInterval(intervalRef.current);
             }
             if (soundRef.current) {
-                // cleanup関数はasyncにできないためPromiseエラーを抑制
-                soundRef.current.unloadAsync().catch(() => {});
+                void soundRef.current.unloadAsync();
             }
         };
     }, []);
@@ -173,112 +178,100 @@ export function TranscriptionView({
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.title}>面接録音（ローカル処理）</Text>
-                <Text style={styles.localBadge}>オフライン対応</Text>
+                <Text style={styles.title}>面接音声</Text>
+                <Text style={styles.localBadge}>オフライン処理</Text>
             </View>
 
-            {/* 待機状態 */}
-            {viewState === 'idle' && (
+            {viewState === 'idle' ? (
                 <View style={styles.idleContainer}>
                     <Text style={styles.description}>
-                        面接の様子を録音し、安全に端末内で{'\n'}文字起こしを実行します
+                        面接の振り返りを録音し、端末内で文字起こしします。
                     </Text>
-                    <TouchableOpacity
-                        style={styles.recordButton}
-                        onPress={handleStartRecording}
-                    >
-                        <Text style={styles.recordIcon}>🎙️</Text>
+                    <TouchableOpacity style={styles.recordButton} onPress={() => void handleStartRecording()}>
+                        <Text style={styles.recordIcon}>●</Text>
                         <Text style={styles.recordButtonText}>録音開始</Text>
                     </TouchableOpacity>
                     <Text style={styles.hintText}>
-                        ※処理はすべてスマホ内で行われるため外部に音声は送信されません
+                        文字起こしはローカルで処理されます。
                     </Text>
                 </View>
-            )}
+            ) : null}
 
-            {/* 録音中 */}
-            {viewState === 'recording' && (
+            {viewState === 'recording' ? (
                 <View style={styles.recordingContainer}>
                     <View style={styles.pulseContainer}>
                         <View style={styles.pulseDot} />
                         <Text style={styles.recordingLabel}>録音中</Text>
                     </View>
-                    <Text style={styles.durationText}>
-                        {formatDuration(recordingDuration)}
-                    </Text>
-                    <TouchableOpacity
-                        style={styles.stopButton}
-                        onPress={handleStopRecording}
-                    >
-                        <Text style={styles.stopIcon}>⏹️</Text>
-                        <Text style={styles.stopButtonText}>録音完了（文字起こしへ）</Text>
+                    <Text style={styles.durationText}>{formatDuration(recordingDuration)}</Text>
+                    <TouchableOpacity style={styles.stopButton} onPress={() => void handleStopRecording()}>
+                        <Text style={styles.stopIcon}>■</Text>
+                        <Text style={styles.stopButtonText}>録音停止して文字起こし</Text>
                     </TouchableOpacity>
                 </View>
-            )}
+            ) : null}
 
-            {/* AI処理中（ローカルWhisper） */}
-            {viewState === 'processing' && (
+            {viewState === 'processing' ? (
                 <View style={styles.uploadingContainer}>
                     <ActivityIndicator size="large" color="#4F46E5" />
-                    <Text style={styles.uploadingText}>
-                        AI 処理中
-                    </Text>
-                    <Text style={styles.uploadingSubtext}>
-                        {progressText}
-                    </Text>
+                    <Text style={styles.uploadingText}>AI 処理中</Text>
+                    <Text style={styles.uploadingSubtext}>{progressText}</Text>
                 </View>
-            )}
+            ) : null}
 
-            {/* 結果表示 */}
             {viewState === 'result' ? (
                 <View style={styles.resultContainer}>
-                    <View style={[styles.transcriptionContainer, isEditingText && styles.transcriptionContainerFocused]}>
+                    <View style={styles.transcriptionContainer}>
                         <View style={styles.transcriptionHeader}>
-                            <Text style={styles.transcriptionLabel}>
-                                {isEditingText ? '✏️ 編集中' : '📝 タップして編集'}
-                            </Text>
+                            <Text style={styles.transcriptionLabel}>文字起こし結果</Text>
+                            <TouchableOpacity
+                                style={[styles.saveButton, (!isDirty || isSaving) && styles.saveButtonDisabled]}
+                                onPress={() => void persistTranscription(displayText)}
+                                disabled={!isDirty || isSaving}
+                            >
+                                <Text style={styles.saveButtonText}>{saveButtonLabel}</Text>
+                            </TouchableOpacity>
                         </View>
+
                         <TextInput
                             style={styles.transcriptionInput}
                             multiline
                             value={displayText}
-                            onChangeText={setDisplayText}
-                            onFocus={() => setIsEditingText(true)}
-                            onBlur={() => {
-                                setIsEditingText(false);
-                                onTranscriptionComplete(displayText);
+                            onChangeText={(text) => {
+                                setDisplayText(text);
+                                setIsDirty(text !== (existingTranscription ?? ''));
                             }}
-                            placeholder="文字起こし結果がここに入ります..."
+                            placeholder="文字起こし結果がここに入ります"
                             textAlignVertical="top"
                             scrollEnabled={false}
                         />
+
                         <TouchableOpacity
                             style={styles.copyButton}
                             onPress={async () => {
                                 await Clipboard.setStringAsync(displayText);
-                                Alert.alert('✅ コピー完了', '全文をクリップボードにコピーしました');
+                                Alert.alert('コピーしました', '全文をクリップボードにコピーしました');
                             }}
                         >
-                            <Text style={styles.copyButtonText}>📋 全文コピー</Text>
+                            <Text style={styles.copyButtonText}>全文をコピー</Text>
                         </TouchableOpacity>
                     </View>
+
                     <View style={styles.actionButtonsRow}>
-                        {savedAudioUri && (
+                        {savedAudioUri ? (
                             <TouchableOpacity
-                                style={[styles.reRecordButton, styles.playButton]}
-                                onPress={playAudio}
+                                style={[styles.secondaryButton, styles.playButton]}
+                                onPress={() => void playAudio()}
                                 disabled={isPlaying}
                             >
-                                <Text style={[styles.reRecordButtonText, isPlaying && { color: '#9CA3AF' }]}>
-                                    {isPlaying ? '🔊 再生中...' : '▶️ 録音を聞く'}
+                                <Text style={[styles.secondaryButtonText, isPlaying && styles.secondaryButtonTextDisabled]}>
+                                    {isPlaying ? '再生中...' : '録音を再生'}
                                 </Text>
                             </TouchableOpacity>
-                        )}
-                        <TouchableOpacity
-                            style={styles.reRecordButton}
-                            onPress={handleReset}
-                        >
-                            <Text style={styles.reRecordButtonText}>🎙️ 撮り直す</Text>
+                        ) : null}
+
+                        <TouchableOpacity style={styles.secondaryButton} onPress={handleReset}>
+                            <Text style={styles.secondaryButtonText}>やり直す</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -342,6 +335,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     recordIcon: {
+        color: '#FFFFFF',
         fontSize: 20,
     },
     recordButtonText: {
@@ -393,6 +387,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     stopIcon: {
+        color: '#FFFFFF',
         fontSize: 18,
     },
     stopButtonText: {
@@ -428,12 +423,9 @@ const styles = StyleSheet.create({
         padding: 14,
         gap: 8,
     },
-    transcriptionContainerFocused: {
-        borderColor: '#4F46E5',
-        backgroundColor: '#FAFAFE',
-    },
     transcriptionHeader: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
     },
     transcriptionLabel: {
@@ -462,7 +454,21 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#4B5563',
     },
-    reRecordButton: {
+    saveButton: {
+        backgroundColor: '#4F46E5',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 10,
+    },
+    saveButtonDisabled: {
+        backgroundColor: '#C7D2FE',
+    },
+    saveButtonText: {
+        color: '#FFFFFF',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    secondaryButton: {
         flex: 1,
         alignItems: 'center',
         backgroundColor: '#F3F4F6',
@@ -473,10 +479,13 @@ const styles = StyleSheet.create({
     playButton: {
         backgroundColor: '#E0F2FE',
     },
-    reRecordButtonText: {
+    secondaryButtonText: {
         color: '#374151',
         fontSize: 14,
         fontWeight: '600',
+    },
+    secondaryButtonTextDisabled: {
+        color: '#9CA3AF',
     },
     actionButtonsRow: {
         flexDirection: 'row',

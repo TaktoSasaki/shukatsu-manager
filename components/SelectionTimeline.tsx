@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { SelectionEvent } from '../types/company';
-import { formatDisplayDate } from '../utils/date';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { RESULT_COLORS } from '../constants/status';
+import type { SelectionEvent } from '../types/company';
+import { formatDisplayDate } from '../utils/date';
 
 interface SelectionTimelineProps {
     events: SelectionEvent[];
@@ -22,8 +22,8 @@ export function SelectionTimeline({ events, onEventPress, onAddPress }: Selectio
 
             {events.length === 0 ? (
                 <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyText}>選考履歴がありません</Text>
-                    <Text style={styles.emptySubtext}>「+ 追加」から選考を記録しましょう</Text>
+                    <Text style={styles.emptyText}>選考履歴はまだありません</Text>
+                    <Text style={styles.emptySubtext}>「追加」からイベントを登録できます。</Text>
                 </View>
             ) : (
                 <View style={styles.timeline}>
@@ -34,36 +34,20 @@ export function SelectionTimeline({ events, onEventPress, onAddPress }: Selectio
                             onPress={() => onEventPress?.(event)}
                             activeOpacity={0.7}
                         >
-                            {/* タイムラインライン */}
                             <View style={styles.timelineLeft}>
-                                <View style={[
-                                    styles.dot,
-                                    { backgroundColor: RESULT_COLORS[event.result] || '#6B7280' }
-                                ]} />
-                                {index < events.length - 1 && <View style={styles.line} />}
+                                <View style={[styles.dot, { backgroundColor: RESULT_COLORS[event.result] || '#6B7280' }]} />
+                                {index < events.length - 1 ? <View style={styles.line} /> : null}
                             </View>
 
-                            {/* イベント内容 */}
                             <View style={styles.eventContent}>
                                 <View style={styles.eventHeader}>
                                     <Text style={styles.eventType}>{event.eventType}</Text>
-                                    <View style={[
-                                        styles.resultBadge,
-                                        { backgroundColor: RESULT_COLORS[event.result] || '#6B7280' }
-                                    ]}>
+                                    <View style={[styles.resultBadge, { backgroundColor: RESULT_COLORS[event.result] || '#6B7280' }]}>
                                         <Text style={styles.resultText}>{event.result}</Text>
                                     </View>
                                 </View>
-                                {event.eventDate && (
-                                    <Text style={styles.eventDate}>
-                                        {formatDisplayDate(event.eventDate)}
-                                    </Text>
-                                )}
-                                {event.notes && (
-                                    <Text style={styles.eventNotes} numberOfLines={2}>
-                                        {event.notes}
-                                    </Text>
-                                )}
+                                {event.eventDate ? <Text style={styles.eventDate}>{formatDisplayDate(event.eventDate)}</Text> : null}
+                                {event.notes ? <Text style={styles.eventNotes} numberOfLines={2}>{event.notes}</Text> : null}
                             </View>
                         </TouchableOpacity>
                     ))}

@@ -1,61 +1,69 @@
-// 日付ユーティリティ関数
+// Date utilities
 
-// 日付をYYYY-MM-DD形式に変換
+export function parseDateOnly(date: string | null): Date | null {
+    if (!date) return null;
+    const parts = date.split('-').map(Number);
+    if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+    const [year, month, day] = parts;
+    return new Date(year, month - 1, day);
+}
+
+export function compareDateOnly(a: string | null, b: string | null): number {
+    const aDate = parseDateOnly(a);
+    const bDate = parseDateOnly(b);
+
+    if (!aDate && !bDate) return 0;
+    if (!aDate) return 1;
+    if (!bDate) return -1;
+    return aDate.getTime() - bDate.getTime();
+}
+
 export function formatDate(date: Date | string | null): string | null {
     if (!date) return null;
-    const d = typeof date === 'string' ? new Date(date) : date;
-    if (isNaN(d.getTime())) return null;
-    // toISOString()はUTC変換するため日本(UTC+9)では日付が1日ズレる。ローカル日付を使用
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    const parsed = typeof date === 'string' ? parseDateOnly(date) ?? new Date(date) : date;
+    if (Number.isNaN(parsed.getTime())) return null;
+
+    const year = parsed.getFullYear();
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    const day = String(parsed.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 }
 
-// 日付を表示用にフォーマット（例: 2024/01/28）
-// YYYY-MM-DD 形式をローカル時刻として解析（new Date('YYYY-MM-DD') はUTC解釈でズレるため）
 export function formatDisplayDate(date: string | null): string {
     if (!date) return '-';
-    const parts = date.split('-').map(Number);
-    if (parts.length !== 3 || parts.some(isNaN)) return '-';
-    const [year, month, day] = parts;
-    return `${year}/${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}`;
+    const parsed = parseDateOnly(date);
+    if (!parsed) return '-';
+
+    return `${parsed.getFullYear()}/${String(parsed.getMonth() + 1).padStart(2, '0')}/${String(parsed.getDate()).padStart(2, '0')}`;
 }
 
-// 日時を表示用にフォーマット（例: 2024/01/28 14:00）
 export function formatDisplayDateTime(date: string | null): string {
     if (!date) return '-';
-    const d = new Date(date);
-    if (isNaN(d.getTime())) return '-';
-    const dateStr = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
-    const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const parsed = new Date(date);
+    if (Number.isNaN(parsed.getTime())) return '-';
+
+    const dateStr = `${parsed.getFullYear()}/${String(parsed.getMonth() + 1).padStart(2, '0')}/${String(parsed.getDate()).padStart(2, '0')}`;
+    const timeStr = `${String(parsed.getHours()).padStart(2, '0')}:${String(parsed.getMinutes()).padStart(2, '0')}`;
     return `${dateStr} ${timeStr}`;
 }
 
-// 時刻のみを抽出（例: 14:00）
 export function extractTimeFromDateTime(date: string | null): string | null {
     if (!date) return null;
-    const d = new Date(date);
-    if (isNaN(d.getTime())) return null;
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const parsed = new Date(date);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return `${String(parsed.getHours()).padStart(2, '0')}:${String(parsed.getMinutes()).padStart(2, '0')}`;
 }
 
-// 残り日数を計算
 export function getDaysRemaining(date: string | null): number | null {
-    if (!date) return null;
-    // new Date('YYYY-MM-DD') はUTC解釈で日本時間だと1日ズレるため、手動パースしてローカル時刻として生成
-    const parts = date.split('-').map(Number);
-    if (parts.length !== 3 || parts.some(isNaN)) return null;
-    const [year, month, day] = parts;
-    const target = new Date(year, month - 1, day);
+    const target = parseDateOnly(date);
+    if (!target) return null;
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const diff = target.getTime() - today.getTime();
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
-// ISO8601形式の現在日時を取得
 export function getCurrentISOString(): string {
     return new Date().toISOString();
 }
-

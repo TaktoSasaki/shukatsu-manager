@@ -1,7 +1,5 @@
-// 企業登録の上限（無料プラン）
 export const FREE_PLAN_COMPANY_LIMIT = 5;
 
-// 選考イベントの種類
 export const EVENT_TYPES = [
     'ES提出',
     '書類選考',
@@ -16,79 +14,96 @@ export const EVENT_TYPES = [
     'その他',
 ] as const;
 
-// 選考結果
 export const EVENT_RESULTS = [
     '結果待ち',
-    '通過',
-    '不通過',
+    '合格',
+    '不合格',
 ] as const;
 
-// 結果の色設定
 export const RESULT_COLORS: Record<string, string> = {
-    '結果待ち': '#F59E0B', // amber
-    '通過': '#10B981', // green
-    '不通過': '#EF4444', // red
+    結果待ち: '#F59E0B',
+    合格: '#10B981',
+    不合格: '#EF4444',
 };
 
-// デフォルトの選考状況リスト（前/後で細分化）
 export const DEFAULT_STATUS_LIST = [
     '未エントリー',
-    'ES提出前',
-    'ES提出後',
+    'ES準備',
+    'ES提出済み',
     'ES通過',
-    '一次面接前',
-    '一次面接後',
+    '一次面接予定',
+    '一次面接済み',
     '一次通過',
-    '二次面接前',
-    '二次面接後',
+    '二次面接予定',
+    '二次面接済み',
     '二次通過',
-    '三次面接前',
-    '三次面接後',
+    '三次面接予定',
+    '三次面接済み',
     '三次通過',
-    '最終面接前',
-    '最終面接後',
+    '最終面接予定',
+    '最終面接済み',
     '内定',
-    '不採用',
-    '辞退',
+    '応募停止',
+    '終了',
 ] as const;
 
-// ステータスの色設定
+export type EventType = typeof EVENT_TYPES[number];
+export type EventResult = typeof EVENT_RESULTS[number];
+export type SystemStatus = typeof DEFAULT_STATUS_LIST[number];
+
 export const STATUS_COLORS: Record<string, string> = {
-    '未エントリー': '#9CA3AF',
-    'ES提出前': '#CBD5E1',
-    'ES提出後': '#3B82F6',
-    'ES通過': '#2563EB',
-    '一次面接前': '#FBBF24',
-    '一次面接後': '#F59E0B',
-    '一次通過': '#D97706',
-    '二次面接前': '#FB923C',
-    '二次面接後': '#F97316',
-    '二次通過': '#EA580C',
-    '三次面接前': '#F87171',
-    '三次面接後': '#EF4444',
-    '三次通過': '#DC2626',
-    '最終面接前': '#F472B6',
-    '最終面接後': '#EC4899',
-    '内定': '#10B981',
-    '不採用': '#6B7280',
-    '辞退': '#6B7280',
+    未エントリー: '#9CA3AF',
+    ES準備: '#CBD5E1',
+    ES提出済み: '#3B82F6',
+    ES通過: '#2563EB',
+    一次面接予定: '#FBBF24',
+    一次面接済み: '#F59E0B',
+    一次通過: '#D97706',
+    二次面接予定: '#FB923C',
+    二次面接済み: '#F97316',
+    二次通過: '#EA580C',
+    三次面接予定: '#F87171',
+    三次面接済み: '#EF4444',
+    三次通過: '#DC2626',
+    最終面接予定: '#F472B6',
+    最終面接済み: '#EC4899',
+    内定: '#10B981',
+    応募停止: '#6B7280',
+    終了: '#6B7280',
 };
 
-// カスタムステータスのデフォルト色
 export const DEFAULT_CUSTOM_STATUS_COLOR = '#6366F1';
+export const REJECTED_STATUS: SystemStatus = '応募停止';
+export const DEFAULT_STATUS: SystemStatus = '未エントリー';
 
-// イベント種類に応じた次のステータスを取得
-export function getNextStatusAfterEvent(eventType: string, result: string): string | null {
-    if (result !== '通過') return null;
+export function isEventType(value: string): value is EventType {
+    return EVENT_TYPES.includes(value as EventType);
+}
 
-    const statusMap: Record<string, string> = {
-        'ES提出': 'ES通過',
-        '書類選考': 'ES通過',
-        '一次面接': '一次通過',
-        '二次面接': '二次通過',
-        '三次面接': '三次通過',
-        '最終面接': '内定',
+export function isEventResult(value: string): value is EventResult {
+    return EVENT_RESULTS.includes(value as EventResult);
+}
+
+export function isSystemStatus(value: string): value is SystemStatus {
+    return DEFAULT_STATUS_LIST.includes(value as SystemStatus);
+}
+
+export function getNextStatusAfterEvent(eventType: EventType, result: EventResult): SystemStatus | null {
+    if (result !== '合格') return null;
+
+    const statusMap: Record<EventType, SystemStatus | null> = {
+        ES提出: 'ES通過',
+        書類選考: 'ES通過',
+        適性検査: null,
+        GD: null,
+        一次面接: '一次通過',
+        二次面接: '二次通過',
+        三次面接: '三次通過',
+        最終面接: '内定',
+        リクルーター面談: null,
+        カジュアル面談: null,
+        その他: null,
     };
 
-    return statusMap[eventType] || null;
+    return statusMap[eventType];
 }

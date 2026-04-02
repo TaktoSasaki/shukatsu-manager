@@ -1,88 +1,141 @@
 import uuid from 'react-native-uuid';
+import {
+    DEFAULT_STATUS,
+    DEFAULT_STATUS_LIST,
+    FREE_PLAN_COMPANY_LIMIT,
+    REJECTED_STATUS,
+    getNextStatusAfterEvent,
+    isSystemStatus,
+} from '../constants/status';
+import type { Company, CompanyInput, CompanyUpdate, SelectionEvent, SelectionEventInput, SelectionEventUpdate } from '../types/company';
+import { compareDateOnly, getCurrentISOString } from '../utils/date';
+import { createCalendarEvent, deleteCalendarEvent, updateCalendarEvent } from '../utils/calendar';
+import { cancelNotificationForCompany, scheduleInterviewNotification } from '../utils/notifications';
 import { getDatabase } from './schema';
-import { Company, CompanyInput, CompanyUpdate } from '../types/company';
-import { getCurrentISOString } from '../utils/date';
-import { DEFAULT_STATUS_LIST, FREE_PLAN_COMPANY_LIMIT } from '../constants/status';
-import { scheduleInterviewNotification, cancelNotificationForCompany } from '../utils/notifications';
-import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from '../utils/calendar';
 
-// ソートタイプ
 export type SortType = 'manual' | 'status-asc' | 'status-desc' | 'interview';
 
-// 全企業を取得（手動ソート順）
+function getStatusOrderIndex(status: string): number {
+    const index = DEFAULT_STATUS_LIST.indexOf(status as typeof DEFAULT_STATUS_LIST[number]);
+    return index === -1 ? DEFAULT_STATUS_LIST.length : index;
+}
+
+function sortEventsForStatus(events: SelectionEvent[]): SelectionEvent[] {
+    return [...events].sort((left, right) => {
+        const dateOrder = compareDateOnly(left.eventDate, right.eventDate);
+        if (dateOrder !== 0) return dateOrder;
+        return left.createdAt.localeCompare(right.createdAt);
+    });
+}
+
+function deriveStatusFromEvents(events: SelectionEvent[]): string | null {
+    let derivedStatus: string | null = null;
+
+    for (const event of sortEventsForStatus(events)) {
+        if (event.result === '合格') {
+            derivedStatus = getNextStatusAfterEvent(event.eventType, event.result) ?? derivedStatus;
+            continue;
+        }
+
+        if (event.result === '不合格') {
+            derivedStatus = REJECTED_STATUS;
+        }
+    }
+
+    return derivedStatus;
+}
+
+async function syncInterviewArtifacts(
+    companyId: string,
+    companyName: string,
+    nextInterviewDate: string | null,
+    previousCalendarEventId: string | null
+): Promise<string | null> {
+    if (!nextInterviewDate) {
+        await cancelNotificationForCompany(companyId);
+        if (previousCalendarEventId) {
+            await deleteCalendarEvent(previousCalendarEventId);
+        }
+        return null;
+    }
+
+    await scheduleInterviewNotification(companyId, companyName, nextInterviewDate);
+    return updateCalendarEvent(previousCalendarEventId, companyName, nextInterviewDate);
+}
+
+async function refreshCompanyStatusFromEvents(companyId: string): Promise<string | null> {
+    const db = await getDatabase();
+    const company = await db.getFirstAsync<Company>('SELECT * FROM companies WHERE id = ?', [companyId]);
+    if (!company) return null;
+
+    if (!isSystemStatus(company.status)) {
+        return company.status;
+    }
+
+    const events = await db.getAllAsync<SelectionEvent>(
+        'SELECT * FROM selection_events WHERE companyId = ?',
+        [companyId]
+    );
+    const nextStatus = deriveStatusFromEvents(events) ?? DEFAULT_STATUS;
+
+    if (nextStatus !== company.status) {
+        await db.runAsync(
+            'UPDATE companies SET status = ?, updatedAt = ? WHERE id = ?',
+            [nextStatus, getCurrentISOString(), companyId]
+        );
+    }
+
+    return nextStatus;
+}
+
 export async function getAllCompanies(sortType: SortType = 'manual'): Promise<Company[]> {
     const db = await getDatabase();
 
-    let orderClause = '';
+    let orderClause = 'sortOrder ASC, updatedAt DESC';
     switch (sortType) {
-        case 'manual':
-            orderClause = 'sortOrder ASC, updatedAt DESC';
-            break;
         case 'interview':
-            orderClause = `CASE WHEN nextInterviewDate IS NULL THEN 1 ELSE 0 END, nextInterviewDate ASC, updatedAt DESC`;
+            orderClause = 'CASE WHEN nextInterviewDate IS NULL THEN 1 ELSE 0 END, nextInterviewDate ASC, updatedAt DESC';
             break;
         case 'status-asc':
         case 'status-desc':
-            // ステータス順はアプリ側でソート
             orderClause = 'sortOrder ASC';
             break;
     }
 
-    const result = await db.getAllAsync<Company>(
-        `SELECT * FROM companies ORDER BY ${orderClause}`
-    );
+    const companies = await db.getAllAsync<Company>(`SELECT * FROM companies ORDER BY ${orderClause}`);
 
-    // ステータス順の場合はアプリ側でソート
     if (sortType === 'status-asc' || sortType === 'status-desc') {
-        const statusOrder = [...DEFAULT_STATUS_LIST];
-        result.sort((a, b) => {
-            const aRaw = statusOrder.indexOf(a.status as any);
-            const bRaw = statusOrder.indexOf(b.status as any);
-            const aIndex = aRaw === -1 ? statusOrder.length : aRaw;
-            const bIndex = bRaw === -1 ? statusOrder.length : bRaw;
-            return sortType === 'status-asc' ? aIndex - bIndex : bIndex - aIndex;
+        companies.sort((left, right) => {
+            const diff = getStatusOrderIndex(left.status) - getStatusOrderIndex(right.status);
+            return sortType === 'status-asc' ? diff : -diff;
         });
     }
 
-    return result;
+    return companies;
 }
 
-// IDで企業を取得
 export async function getCompanyById(id: string): Promise<Company | null> {
     const db = await getDatabase();
-    const result = await db.getFirstAsync<Company>(
-        'SELECT * FROM companies WHERE id = ?',
-        [id]
-    );
-    return result || null;
+    return (await db.getFirstAsync<Company>('SELECT * FROM companies WHERE id = ?', [id])) ?? null;
 }
 
-// 企業を作成
 export async function createCompany(input: CompanyInput): Promise<Company> {
     const db = await getDatabase();
-
-    // 登録上限チェック
-    const countResult = await db.getFirstAsync<{ count: number }>(
-        'SELECT COUNT(*) as count FROM companies'
-    );
+    const countResult = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM companies');
     if (countResult && countResult.count >= FREE_PLAN_COMPANY_LIMIT) {
         throw new Error(`企業の登録上限（${FREE_PLAN_COMPANY_LIMIT}社）に達しました`);
     }
 
     const now = getCurrentISOString();
     const id = uuid.v4() as string;
-
-    // 最大sortOrderを取得
-    const maxOrder = await db.getFirstAsync<{ maxOrder: number | null }>(
-        'SELECT MAX(sortOrder) as maxOrder FROM companies'
-    );
+    const maxOrder = await db.getFirstAsync<{ maxOrder: number | null }>('SELECT MAX(sortOrder) as maxOrder FROM companies');
     const newSortOrder = (maxOrder?.maxOrder ?? -1) + 1;
 
     await db.runAsync(
         `INSERT INTO companies (
-      id, companyName, loginId, myPageUrl, entryDate, nextInterviewDate,
-      position, esContent, motivation, notes, transcription, status, sortOrder, createdAt, updatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            id, companyName, loginId, myPageUrl, entryDate, nextInterviewDate,
+            position, esContent, motivation, notes, transcription, status, sortOrder, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             id,
             input.companyName,
@@ -102,22 +155,9 @@ export async function createCompany(input: CompanyInput): Promise<Company> {
         ]
     );
 
-    // 面接日が設定されている場合、通知・カレンダーをセットアップ
-    let calendarEventId: string | null = null;
-    if (input.nextInterviewDate) {
-        await scheduleInterviewNotification(id, input.companyName, input.nextInterviewDate);
-        calendarEventId = await createCalendarEvent(input.companyName, input.nextInterviewDate);
-        if (calendarEventId) {
-            try {
-                await db.runAsync(
-                    'UPDATE companies SET calendarEventId = ? WHERE id = ?',
-                    [calendarEventId, id]
-                );
-            } catch (e) {
-                console.error('Failed to save calendarEventId:', e);
-                calendarEventId = null;
-            }
-        }
+    const calendarEventId = await syncInterviewArtifacts(id, input.companyName, input.nextInterviewDate, null);
+    if (calendarEventId) {
+        await db.runAsync('UPDATE companies SET calendarEventId = ? WHERE id = ?', [calendarEventId, id]);
     }
 
     return {
@@ -130,7 +170,6 @@ export async function createCompany(input: CompanyInput): Promise<Company> {
     };
 }
 
-// 企業を更新
 export async function updateCompany(id: string, updates: CompanyUpdate): Promise<Company | null> {
     const db = await getDatabase();
     const existing = await getCompanyById(id);
@@ -145,19 +184,19 @@ export async function updateCompany(id: string, updates: CompanyUpdate): Promise
 
     await db.runAsync(
         `UPDATE companies SET
-      companyName = ?,
-      loginId = ?,
-      myPageUrl = ?,
-      entryDate = ?,
-      nextInterviewDate = ?,
-      position = ?,
-      esContent = ?,
-      motivation = ?,
-      notes = ?,
-      transcription = ?,
-      status = ?,
-      updatedAt = ?
-    WHERE id = ?`,
+            companyName = ?,
+            loginId = ?,
+            myPageUrl = ?,
+            entryDate = ?,
+            nextInterviewDate = ?,
+            position = ?,
+            esContent = ?,
+            motivation = ?,
+            notes = ?,
+            transcription = ?,
+            status = ?,
+            updatedAt = ?
+         WHERE id = ?`,
         [
             updated.companyName,
             updated.loginId,
@@ -175,75 +214,50 @@ export async function updateCompany(id: string, updates: CompanyUpdate): Promise
         ]
     );
 
-    // 面接日の通知・カレンダーを更新
-    if (updated.nextInterviewDate) {
-        await scheduleInterviewNotification(id, updated.companyName, updated.nextInterviewDate);
-        const newEventId = await updateCalendarEvent(
-            existing.calendarEventId,
-            updated.companyName,
-            updated.nextInterviewDate
-        );
-        if (newEventId !== existing.calendarEventId) {
-            updated.calendarEventId = newEventId;
-            await db.runAsync(
-                'UPDATE companies SET calendarEventId = ? WHERE id = ?',
-                [newEventId, id]
-            );
-        }
-    } else {
-        await cancelNotificationForCompany(id);
-        if (existing.calendarEventId) {
-            await deleteCalendarEvent(existing.calendarEventId);
-            updated.calendarEventId = null;
-            await db.runAsync(
-                'UPDATE companies SET calendarEventId = NULL WHERE id = ?',
-                [id]
-            );
-        }
+    const calendarEventId = await syncInterviewArtifacts(
+        id,
+        updated.companyName,
+        updated.nextInterviewDate,
+        existing.calendarEventId
+    );
+
+    if (calendarEventId !== existing.calendarEventId) {
+        updated.calendarEventId = calendarEventId;
+        await db.runAsync('UPDATE companies SET calendarEventId = ? WHERE id = ?', [calendarEventId, id]);
     }
 
     return updated;
 }
 
-// 企業を削除
 export async function deleteCompany(id: string): Promise<boolean> {
     const db = await getDatabase();
-    // 通知・カレンダーをキャンセルしてから削除
     await cancelNotificationForCompany(id);
+
     const existing = await getCompanyById(id);
     if (existing?.calendarEventId) {
         await deleteCalendarEvent(existing.calendarEventId);
     }
+
     const result = await db.runAsync('DELETE FROM companies WHERE id = ?', [id]);
     return result.changes > 0;
 }
 
-// 企業の並び順を更新
 export async function reorderCompanies(orderedIds: string[]): Promise<void> {
     const db = await getDatabase();
-
-    // トランザクションで一括更新（中間失敗時のデータ不整合を防止）
     await db.withTransactionAsync(async () => {
-        for (let i = 0; i < orderedIds.length; i++) {
-            await db.runAsync(
-                'UPDATE companies SET sortOrder = ? WHERE id = ?',
-                [i, orderedIds[i]]
-            );
+        for (const [index, companyId] of orderedIds.entries()) {
+            await db.runAsync('UPDATE companies SET sortOrder = ? WHERE id = ?', [index, companyId]);
         }
     });
 }
 
-// ステータスで絞り込み
 export async function getCompaniesByStatus(status: string): Promise<Company[]> {
     const db = await getDatabase();
-    const result = await db.getAllAsync<Company>(
-        `SELECT * FROM companies WHERE status = ? ORDER BY updatedAt DESC`,
+    return db.getAllAsync<Company>(
+        'SELECT * FROM companies WHERE status = ? ORDER BY updatedAt DESC',
         [status]
     );
-    return result;
 }
-
-// カスタムステータス関連
 
 export interface CustomStatus {
     id: number;
@@ -253,100 +267,70 @@ export interface CustomStatus {
     createdAt: string;
 }
 
-// 全カスタムステータスを取得
 export async function getAllCustomStatuses(): Promise<CustomStatus[]> {
     const db = await getDatabase();
-    const result = await db.getAllAsync<CustomStatus>(
-        'SELECT * FROM custom_statuses ORDER BY sortOrder ASC'
-    );
-    return result;
+    return db.getAllAsync<CustomStatus>('SELECT * FROM custom_statuses ORDER BY sortOrder ASC');
 }
 
-// カスタムステータスを追加
 export async function addCustomStatus(name: string, color: string): Promise<CustomStatus> {
     const db = await getDatabase();
     const now = getCurrentISOString();
-
-    // 最大sortOrderを取得
     const maxOrder = await db.getFirstAsync<{ maxOrder: number | null }>(
         'SELECT MAX(sortOrder) as maxOrder FROM custom_statuses'
     );
-    const newOrder = (maxOrder?.maxOrder ?? -1) + 1;
+    const sortOrder = (maxOrder?.maxOrder ?? -1) + 1;
 
     const result = await db.runAsync(
         'INSERT INTO custom_statuses (name, color, sortOrder, createdAt) VALUES (?, ?, ?, ?)',
-        [name, color, newOrder, now]
+        [name, color, sortOrder, now]
     );
 
     return {
         id: result.lastInsertRowId,
         name,
         color,
-        sortOrder: newOrder,
+        sortOrder,
         createdAt: now,
     };
 }
 
-// カスタムステータスを削除
 export async function deleteCustomStatus(id: number): Promise<boolean> {
     const db = await getDatabase();
+    const existing = await db.getFirstAsync<CustomStatus>('SELECT * FROM custom_statuses WHERE id = ?', [id]);
+    if (!existing) return false;
+
+    const usage = await db.getFirstAsync<{ count: number }>(
+        'SELECT COUNT(*) as count FROM companies WHERE status = ?',
+        [existing.name]
+    );
+    if ((usage?.count ?? 0) > 0) {
+        throw new Error('利用中のカスタムステータスは削除できません');
+    }
+
     const result = await db.runAsync('DELETE FROM custom_statuses WHERE id = ?', [id]);
     return result.changes > 0;
 }
 
-// ===============================
-// 選考イベント関連
-// ===============================
-
-import { SelectionEvent, SelectionEventInput, SelectionEventUpdate } from '../types/company';
-import { getNextStatusAfterEvent } from '../constants/status';
-
-// 企業の選考イベントを全て取得（日付順）
 export async function getSelectionEventsByCompany(companyId: string): Promise<SelectionEvent[]> {
     const db = await getDatabase();
-    const result = await db.getAllAsync<SelectionEvent>(
-        `SELECT * FROM selection_events WHERE companyId = ? ORDER BY eventDate DESC, createdAt DESC`,
+    return db.getAllAsync<SelectionEvent>(
+        'SELECT * FROM selection_events WHERE companyId = ? ORDER BY eventDate DESC, createdAt DESC',
         [companyId]
     );
-    return result;
 }
 
-// 選考イベントを作成
 export async function createSelectionEvent(input: SelectionEventInput): Promise<SelectionEvent> {
     const db = await getDatabase();
     const now = getCurrentISOString();
     const id = uuid.v4() as string;
 
-    // イベント挿入とステータス自動更新をアトミックに実行
-    await db.withTransactionAsync(async () => {
-        await db.runAsync(
-            `INSERT INTO selection_events (id, companyId, eventType, eventDate, result, notes, createdAt)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [id, input.companyId, input.eventType, input.eventDate, input.result, input.notes, now]
-        );
+    await db.runAsync(
+        `INSERT INTO selection_events (id, companyId, eventType, eventDate, result, notes, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [id, input.companyId, input.eventType, input.eventDate, input.result, input.notes, now]
+    );
 
-        // 結果が「通過」の場合、企業のステータスを自動更新
-        if (input.result === '通過') {
-            const nextStatus = getNextStatusAfterEvent(input.eventType, input.result);
-            if (nextStatus) {
-                const existing = await db.getFirstAsync<Company>(
-                    'SELECT * FROM companies WHERE id = ?',
-                    [input.companyId]
-                );
-                if (existing) {
-                    await db.runAsync(
-                        `UPDATE companies SET status = ?, updatedAt = ? WHERE id = ?`,
-                        [nextStatus, now, input.companyId]
-                    );
-                }
-            }
-        } else if (input.result === '不通過') {
-            await db.runAsync(
-                `UPDATE companies SET status = ?, updatedAt = ? WHERE id = ?`,
-                ['不採用', now, input.companyId]
-            );
-        }
-    });
+    await refreshCompanyStatusFromEvents(input.companyId);
 
     return {
         id,
@@ -355,13 +339,9 @@ export async function createSelectionEvent(input: SelectionEventInput): Promise<
     };
 }
 
-// 選考イベントを更新
 export async function updateSelectionEvent(id: string, updates: SelectionEventUpdate): Promise<SelectionEvent | null> {
     const db = await getDatabase();
-    const existing = await db.getFirstAsync<SelectionEvent>(
-        'SELECT * FROM selection_events WHERE id = ?',
-        [id]
-    );
+    const existing = await db.getFirstAsync<SelectionEvent>('SELECT * FROM selection_events WHERE id = ?', [id]);
     if (!existing) return null;
 
     const updated: SelectionEvent = {
@@ -370,29 +350,24 @@ export async function updateSelectionEvent(id: string, updates: SelectionEventUp
     };
 
     await db.runAsync(
-        `UPDATE selection_events SET eventType = ?, eventDate = ?, result = ?, notes = ? WHERE id = ?`,
+        'UPDATE selection_events SET eventType = ?, eventDate = ?, result = ?, notes = ? WHERE id = ?',
         [updated.eventType, updated.eventDate, updated.result, updated.notes, id]
     );
 
-    // 結果が変わった場合、企業のステータスを更新
-    if (updates.result && updates.result !== existing.result) {
-        if (updates.result === '通過') {
-            const nextStatus = getNextStatusAfterEvent(updated.eventType, updates.result);
-            if (nextStatus) {
-                await updateCompany(updated.companyId, { status: nextStatus });
-            }
-        } else if (updates.result === '不通過') {
-            await updateCompany(updated.companyId, { status: '不採用' });
-        }
-    }
-
+    await refreshCompanyStatusFromEvents(updated.companyId);
     return updated;
 }
 
-// 選考イベントを削除
 export async function deleteSelectionEvent(id: string): Promise<boolean> {
     const db = await getDatabase();
-    const result = await db.runAsync('DELETE FROM selection_events WHERE id = ?', [id]);
-    return result.changes > 0;
-}
+    const existing = await db.getFirstAsync<SelectionEvent>('SELECT * FROM selection_events WHERE id = ?', [id]);
+    if (!existing) return false;
 
+    const result = await db.runAsync('DELETE FROM selection_events WHERE id = ?', [id]);
+    if (result.changes > 0) {
+        await refreshCompanyStatusFromEvents(existing.companyId);
+        return true;
+    }
+
+    return false;
+}

@@ -1,43 +1,36 @@
-// 企業データの型定義
+import type { EventResult, EventType } from '../constants/status';
 
 export interface Company {
   id: string;
   companyName: string;
-  loginId: string | null; // マイページのログインID
+  loginId: string | null;
   myPageUrl: string | null;
-  entryDate: string | null; // YYYY-MM-DD形式
-  nextInterviewDate: string | null; // YYYY-MM-DD形式
-  position: string | null; // 応募職種
-  esContent: string | null; // 使用したES
-  motivation: string | null; // 志望動機
-  notes: string | null; // その他メモ
-  transcription: string | null; // 面接録音の文字起こし
-  status: string; // カスタム可能なステータス
-  sortOrder: number; // 手動並び替え用
-  calendarEventId: string | null; // Googleカレンダーイベントの識別子
+  entryDate: string | null;
+  nextInterviewDate: string | null;
+  position: string | null;
+  esContent: string | null;
+  motivation: string | null;
+  notes: string | null;
+  transcription: string | null;
+  status: string;
+  sortOrder: number;
+  calendarEventId: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-// 新規作成時の入力データ（IDと日時、ソート順、カレンダーIDは自動生成）
 export type CompanyInput = Omit<Company, 'id' | 'createdAt' | 'updatedAt' | 'sortOrder' | 'calendarEventId'>;
-
-// 更新時の入力データ（部分更新可能）
 export type CompanyUpdate = Partial<CompanyInput>;
 
-// 選考イベントの型定義
 export interface SelectionEvent {
   id: string;
   companyId: string;
-  eventType: string; // ES提出、GD、一次面接など
-  eventDate: string | null; // 実施日
-  result: string; // 結果待ち、通過、不通過
-  notes: string | null; // 内容・メモ
+  eventType: EventType;
+  eventDate: string | null;
+  result: EventResult;
+  notes: string | null;
   createdAt: string;
 }
 
-// 選考イベント新規作成時の入力データ
 export type SelectionEventInput = Omit<SelectionEvent, 'id' | 'createdAt'>;
-
-// 選考イベント更新時の入力データ
 export type SelectionEventUpdate = Partial<SelectionEventInput>;

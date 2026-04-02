@@ -1,22 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    View,
+    Alert,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
     Text,
     TextInput,
-    StyleSheet,
-    ScrollView,
     TouchableOpacity,
-    Modal,
-    Alert,
-    Platform,
+    View,
 } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { Company, CompanyInput } from '../types/company';
-import { DEFAULT_STATUS_LIST } from '../constants/status';
-import { getAllCustomStatuses, addCustomStatus, CustomStatus } from '../database/repository';
-import { StatusBadge } from './StatusBadge';
+import { DEFAULT_CUSTOM_STATUS_COLOR, DEFAULT_STATUS, DEFAULT_STATUS_LIST } from '../constants/status';
+import { addCustomStatus, CustomStatus, getAllCustomStatuses } from '../database/repository';
+import { type Company, type CompanyInput } from '../types/company';
+import { formatDisplayDate, parseDateOnly } from '../utils/date';
 import { QRScannerModal } from './QRScannerModal';
-import { formatDisplayDate } from '../utils/date';
+import { StatusBadge } from './StatusBadge';
 
 interface CompanyFormProps {
     initialData?: Company;
@@ -24,125 +24,122 @@ interface CompanyFormProps {
     onCancel: () => void;
 }
 
+function parsePickerDate(dateString: string): Date {
+    return parseDateOnly(dateString) ?? new Date();
+}
+
+function normalizeNullable(value: string): string | null {
+    const normalized = value.trim();
+    return normalized ? normalized : null;
+}
+
 export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProps) {
-    const [companyName, setCompanyName] = useState(initialData?.companyName || '');
-    const [loginId, setLoginId] = useState(initialData?.loginId || '');
-    const [myPageUrl, setMyPageUrl] = useState(initialData?.myPageUrl || '');
-    const [entryDate, setEntryDate] = useState(initialData?.entryDate || '');
-    const [nextInterviewDate, setNextInterviewDate] = useState(initialData?.nextInterviewDate || '');
-    const [position, setPosition] = useState(initialData?.position || '');
-    const [esContent, setEsContent] = useState(initialData?.esContent || '');
-    const [motivation, setMotivation] = useState(initialData?.motivation || '');
-    const [notes, setNotes] = useState(initialData?.notes || '');
-    const [status, setStatus] = useState(initialData?.status || '未エントリー');
+    const [companyName, setCompanyName] = useState(initialData?.companyName ?? '');
+    const [loginId, setLoginId] = useState(initialData?.loginId ?? '');
+    const [myPageUrl, setMyPageUrl] = useState(initialData?.myPageUrl ?? '');
+    const [entryDate, setEntryDate] = useState(initialData?.entryDate ?? '');
+    const [nextInterviewDate, setNextInterviewDate] = useState(initialData?.nextInterviewDate ?? '');
+    const [position, setPosition] = useState(initialData?.position ?? '');
+    const [esContent, setEsContent] = useState(initialData?.esContent ?? '');
+    const [motivation, setMotivation] = useState(initialData?.motivation ?? '');
+    const [notes, setNotes] = useState(initialData?.notes ?? '');
+    const [status, setStatus] = useState(initialData?.status ?? DEFAULT_STATUS);
 
     const [showStatusPicker, setShowStatusPicker] = useState(false);
     const [showQRScanner, setShowQRScanner] = useState(false);
     const [customStatuses, setCustomStatuses] = useState<CustomStatus[]>([]);
     const [newStatusName, setNewStatusName] = useState('');
     const [showAddStatus, setShowAddStatus] = useState(false);
-
-    // Date picker states
     const [showEntryDatePicker, setShowEntryDatePicker] = useState(false);
     const [showInterviewDatePicker, setShowInterviewDatePicker] = useState(false);
 
     useEffect(() => {
-        loadCustomStatuses();
+        void loadCustomStatuses();
     }, []);
 
-    const loadCustomStatuses = async () => {
+    async function loadCustomStatuses(): Promise<void> {
         try {
-            const statuses = await getAllCustomStatuses();
-            setCustomStatuses(statuses);
+            setCustomStatuses(await getAllCustomStatuses());
         } catch (error) {
             console.error('Failed to load custom statuses:', error);
-            Alert.alert('エラー', 'ステータスの読み込みに失敗しました');
+            Alert.alert('エラー', 'カスタムステータスの読み込みに失敗しました');
         }
-    };
+    }
 
-    const handleAddCustomStatus = async () => {
-        if (!newStatusName.trim()) return;
+    async function handleAddCustomStatus(): Promise<void> {
+        const trimmed = newStatusName.trim();
+        if (!trimmed) return;
+
         try {
-            await addCustomStatus(newStatusName.trim(), '#6366F1');
+            await addCustomStatus(trimmed, DEFAULT_CUSTOM_STATUS_COLOR);
             await loadCustomStatuses();
             setNewStatusName('');
             setShowAddStatus(false);
         } catch (error) {
-            Alert.alert('エラー', 'ステータスの追加に失敗しました');
+            const message = error instanceof Error ? error.message : 'カスタムステータスの追加に失敗しました';
+            Alert.alert('エラー', message);
         }
-    };
+    }
 
-    const handleSubmit = () => {
-        if (!companyName.trim()) {
+    function validateUrl(url: string | null): boolean {
+        if (!url) return true;
+        try {
+            const parsed = new URL(url);
+            return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+        } catch {
+            return false;
+        }
+    }
+
+    function handleSubmit(): void {
+        const trimmedCompanyName = companyName.trim();
+        if (!trimmedCompanyName) {
             Alert.alert('エラー', '企業名を入力してください');
             return;
         }
 
+        const normalizedUrl = normalizeNullable(myPageUrl);
+        if (!validateUrl(normalizedUrl)) {
+            Alert.alert('エラー', 'マイページURLは http:// または https:// で始まる形式で入力してください');
+            return;
+        }
+
         onSubmit({
-            companyName: companyName.trim(),
-            loginId: loginId.trim() || null,
-            myPageUrl: myPageUrl.trim() || null,
+            companyName: trimmedCompanyName,
+            loginId: normalizeNullable(loginId),
+            myPageUrl: normalizedUrl,
             entryDate: entryDate || null,
             nextInterviewDate: nextInterviewDate || null,
-            position: position.trim() || null,
-            esContent: esContent.trim() || null,
-            motivation: motivation.trim() || null,
-            notes: notes.trim() || null,
+            position: normalizeNullable(position),
+            esContent: normalizeNullable(esContent),
+            motivation: normalizeNullable(motivation),
+            notes: normalizeNullable(notes),
             transcription: initialData?.transcription ?? null,
             status,
         });
-    };
+    }
 
-    const allStatuses = [
-        ...DEFAULT_STATUS_LIST,
-        ...customStatuses.map(s => s.name),
-    ];
-
-    const handleEntryDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    function handleEntryDateChange(event: DateTimePickerEvent, selectedDate?: Date): void {
         setShowEntryDatePicker(Platform.OS === 'ios');
         if (selectedDate && event.type !== 'dismissed') {
-            // toISOString()はUTC変換するため日本(UTC+9)では日付が1日ズレる。ローカル日付を使用
-            const year = selectedDate.getFullYear();
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const day = String(selectedDate.getDate()).padStart(2, '0');
-            setEntryDate(`${year}-${month}-${day}`);
+            setEntryDate(`${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`);
         }
         if (Platform.OS === 'android') {
             setShowEntryDatePicker(false);
         }
-    };
+    }
 
-    const handleInterviewDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    function handleInterviewDateChange(event: DateTimePickerEvent, selectedDate?: Date): void {
         setShowInterviewDatePicker(Platform.OS === 'ios');
         if (selectedDate && event.type !== 'dismissed') {
-            // ローカル日付を使用（toISOString()はUTC変換でズレる）
-            const year = selectedDate.getFullYear();
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const day = String(selectedDate.getDate()).padStart(2, '0');
-            setNextInterviewDate(`${year}-${month}-${day}`);
+            setNextInterviewDate(`${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`);
         }
         if (Platform.OS === 'android') {
             setShowInterviewDatePicker(false);
         }
-    };
+    }
 
-    const parseDate = (dateString: string): Date => {
-        if (dateString) {
-            const parsed = new Date(dateString);
-            if (!isNaN(parsed.getTime())) {
-                return parsed;
-            }
-        }
-        return new Date();
-    };
-
-    const clearEntryDate = () => {
-        setEntryDate('');
-    };
-
-    const clearInterviewDate = () => {
-        setNextInterviewDate('');
-    };
+    const allStatuses = [...DEFAULT_STATUS_LIST, ...customStatuses.map((item) => item.name)];
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -152,24 +149,21 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
                     style={styles.input}
                     value={companyName}
                     onChangeText={setCompanyName}
-                    placeholder="株式会社○○"
+                    placeholder="例: OpenAI"
                     placeholderTextColor="#9CA3AF"
                 />
             </View>
 
             <View style={styles.field}>
-                <Text style={styles.label}>選考状況</Text>
-                <TouchableOpacity
-                    style={styles.statusButton}
-                    onPress={() => setShowStatusPicker(true)}
-                >
+                <Text style={styles.label}>ステータス</Text>
+                <TouchableOpacity style={styles.statusButton} onPress={() => setShowStatusPicker(true)}>
                     <StatusBadge status={status} />
                     <Text style={styles.statusButtonText}>変更</Text>
                 </TouchableOpacity>
             </View>
 
             <View style={styles.field}>
-                <Text style={styles.label}>マイページID</Text>
+                <Text style={styles.label}>ログインID</Text>
                 <TextInput
                     style={styles.input}
                     value={loginId}
@@ -192,10 +186,7 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
                         keyboardType="url"
                         autoCapitalize="none"
                     />
-                    <TouchableOpacity
-                        style={styles.qrButton}
-                        onPress={() => setShowQRScanner(true)}
-                    >
+                    <TouchableOpacity style={styles.qrButton} onPress={() => setShowQRScanner(true)}>
                         <Text style={styles.qrButtonText}>QR</Text>
                     </TouchableOpacity>
                 </View>
@@ -213,121 +204,105 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
             <View style={styles.row}>
                 <View style={[styles.field, styles.halfField]}>
                     <Text style={styles.label}>エントリー日</Text>
-                    <TouchableOpacity
-                        style={styles.dateButton}
-                        onPress={() => setShowEntryDatePicker(true)}
-                    >
-                        <Text style={[
-                            styles.dateButtonText,
-                            !entryDate && styles.dateButtonPlaceholder
-                        ]}>
-                            {entryDate ? formatDisplayDate(entryDate) : '📅 選択'}
+                    <TouchableOpacity style={styles.dateButton} onPress={() => setShowEntryDatePicker(true)}>
+                        <Text style={[styles.dateButtonText, !entryDate && styles.dateButtonPlaceholder]}>
+                            {entryDate ? formatDisplayDate(entryDate) : '日付を選択'}
                         </Text>
-                        {entryDate && (
-                            <TouchableOpacity onPress={clearEntryDate} style={styles.clearButton}>
-                                <Text style={styles.clearButtonText}>✕</Text>
+                        {entryDate ? (
+                            <TouchableOpacity onPress={() => setEntryDate('')} style={styles.clearButton}>
+                                <Text style={styles.clearButtonText}>×</Text>
                             </TouchableOpacity>
-                        )}
+                        ) : null}
                     </TouchableOpacity>
                 </View>
+
                 <View style={[styles.field, styles.halfField]}>
                     <Text style={styles.label}>次回面接日</Text>
-                    <TouchableOpacity
-                        style={styles.dateButton}
-                        onPress={() => setShowInterviewDatePicker(true)}
-                    >
-                        <Text style={[
-                            styles.dateButtonText,
-                            !nextInterviewDate && styles.dateButtonPlaceholder
-                        ]}>
-                            {nextInterviewDate ? formatDisplayDate(nextInterviewDate) : '📅 選択'}
+                    <TouchableOpacity style={styles.dateButton} onPress={() => setShowInterviewDatePicker(true)}>
+                        <Text style={[styles.dateButtonText, !nextInterviewDate && styles.dateButtonPlaceholder]}>
+                            {nextInterviewDate ? formatDisplayDate(nextInterviewDate) : '日付を選択'}
                         </Text>
-                        {nextInterviewDate && (
-                            <TouchableOpacity onPress={clearInterviewDate} style={styles.clearButton}>
-                                <Text style={styles.clearButtonText}>✕</Text>
+                        {nextInterviewDate ? (
+                            <TouchableOpacity onPress={() => setNextInterviewDate('')} style={styles.clearButton}>
+                                <Text style={styles.clearButtonText}>×</Text>
                             </TouchableOpacity>
-                        )}
+                        ) : null}
                     </TouchableOpacity>
                 </View>
             </View>
 
-            {/* Date Pickers */}
-            {
-                showEntryDatePicker && (
-                    <Modal
-                        visible={showEntryDatePicker}
-                        transparent
-                        animationType="slide"
-                        onRequestClose={() => setShowEntryDatePicker(false)}
-                    >
-                        <View style={styles.datePickerModal}>
-                            <View style={styles.datePickerContainer}>
-                                <View style={styles.datePickerHeader}>
-                                    <Text style={styles.datePickerTitle}>エントリー日を選択</Text>
-                                    <TouchableOpacity onPress={() => setShowEntryDatePicker(false)}>
-                                        <Text style={styles.datePickerDone}>完了</Text>
-                                    </TouchableOpacity>
-                                </View>
-                                <DateTimePicker
-                                    value={parseDate(entryDate)}
-                                    mode="date"
-                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                    onChange={handleEntryDateChange}
-                                    locale="ja"
-                                />
+            {showEntryDatePicker ? (
+                <Modal
+                    visible={showEntryDatePicker}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setShowEntryDatePicker(false)}
+                >
+                    <View style={styles.datePickerModal}>
+                        <View style={styles.datePickerContainer}>
+                            <View style={styles.datePickerHeader}>
+                                <Text style={styles.datePickerTitle}>エントリー日を選択</Text>
+                                <TouchableOpacity onPress={() => setShowEntryDatePicker(false)}>
+                                    <Text style={styles.datePickerDone}>完了</Text>
+                                </TouchableOpacity>
                             </View>
+                            <DateTimePicker
+                                value={parsePickerDate(entryDate)}
+                                mode="date"
+                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                onChange={handleEntryDateChange}
+                                locale="ja"
+                            />
                         </View>
-                    </Modal>
-                )
-            }
+                    </View>
+                </Modal>
+            ) : null}
 
-            {
-                showInterviewDatePicker && (
-                    <Modal
-                        visible={showInterviewDatePicker}
-                        transparent
-                        animationType="slide"
-                        onRequestClose={() => setShowInterviewDatePicker(false)}
-                    >
-                        <View style={styles.datePickerModal}>
-                            <View style={styles.datePickerContainer}>
-                                <View style={styles.datePickerHeader}>
-                                    <Text style={styles.datePickerTitle}>次回面接日を選択</Text>
-                                    <TouchableOpacity onPress={() => setShowInterviewDatePicker(false)}>
-                                        <Text style={styles.datePickerDone}>完了</Text>
-                                    </TouchableOpacity>
-                                </View>
-                                <DateTimePicker
-                                    value={parseDate(nextInterviewDate)}
-                                    mode="date"
-                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                    onChange={handleInterviewDateChange}
-                                    locale="ja"
-                                />
+            {showInterviewDatePicker ? (
+                <Modal
+                    visible={showInterviewDatePicker}
+                    transparent
+                    animationType="slide"
+                    onRequestClose={() => setShowInterviewDatePicker(false)}
+                >
+                    <View style={styles.datePickerModal}>
+                        <View style={styles.datePickerContainer}>
+                            <View style={styles.datePickerHeader}>
+                                <Text style={styles.datePickerTitle}>次回面接日を選択</Text>
+                                <TouchableOpacity onPress={() => setShowInterviewDatePicker(false)}>
+                                    <Text style={styles.datePickerDone}>完了</Text>
+                                </TouchableOpacity>
                             </View>
+                            <DateTimePicker
+                                value={parsePickerDate(nextInterviewDate)}
+                                mode="date"
+                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                onChange={handleInterviewDateChange}
+                                locale="ja"
+                            />
                         </View>
-                    </Modal>
-                )
-            }
+                    </View>
+                </Modal>
+            ) : null}
 
             <View style={styles.field}>
-                <Text style={styles.label}>応募職種</Text>
+                <Text style={styles.label}>職種</Text>
                 <TextInput
                     style={styles.input}
                     value={position}
                     onChangeText={setPosition}
-                    placeholder="エンジニア、営業など"
+                    placeholder="エンジニア、営業 など"
                     placeholderTextColor="#9CA3AF"
                 />
             </View>
 
             <View style={styles.field}>
-                <Text style={styles.label}>使用したES</Text>
+                <Text style={styles.label}>ES内容</Text>
                 <TextInput
                     style={[styles.input, styles.multiline]}
                     value={esContent}
                     onChangeText={setEsContent}
-                    placeholder="ESの内容・概要"
+                    placeholder="ESの内容や提出文面"
                     placeholderTextColor="#9CA3AF"
                     multiline
                     numberOfLines={4}
@@ -341,7 +316,7 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
                     style={[styles.input, styles.multiline]}
                     value={motivation}
                     onChangeText={setMotivation}
-                    placeholder="志望動機・面接で話した内容"
+                    placeholder="志望動機や面接で話した内容"
                     placeholderTextColor="#9CA3AF"
                     multiline
                     numberOfLines={4}
@@ -350,12 +325,12 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
             </View>
 
             <View style={styles.field}>
-                <Text style={styles.label}>その他メモ</Text>
+                <Text style={styles.label}>メモ</Text>
                 <TextInput
                     style={[styles.input, styles.multiline]}
                     value={notes}
                     onChangeText={setNotes}
-                    placeholder="面接官の印象、質問内容など"
+                    placeholder="面接対策、連絡事項など"
                     placeholderTextColor="#9CA3AF"
                     multiline
                     numberOfLines={4}
@@ -368,13 +343,10 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
                     <Text style={styles.cancelButtonText}>キャンセル</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-                    <Text style={styles.submitButtonText}>
-                        {initialData ? '更新する' : '登録する'}
-                    </Text>
+                    <Text style={styles.submitButtonText}>{initialData ? '更新する' : '登録する'}</Text>
                 </TouchableOpacity>
             </View>
 
-            {/* ステータス選択モーダル */}
             <Modal
                 visible={showStatusPicker}
                 animationType="slide"
@@ -384,32 +356,28 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>選考状況を選択</Text>
+                            <Text style={styles.modalTitle}>ステータスを選択</Text>
                             <TouchableOpacity onPress={() => setShowStatusPicker(false)}>
                                 <Text style={styles.modalClose}>閉じる</Text>
                             </TouchableOpacity>
                         </View>
 
                         <ScrollView style={styles.statusList}>
-                            {allStatuses.map((s) => (
+                            {allStatuses.map((item) => (
                                 <TouchableOpacity
-                                    key={s}
-                                    style={[
-                                        styles.statusOption,
-                                        status === s && styles.statusOptionSelected,
-                                    ]}
+                                    key={item}
+                                    style={[styles.statusOption, status === item && styles.statusOptionSelected]}
                                     onPress={() => {
-                                        setStatus(s);
+                                        setStatus(item);
                                         setShowStatusPicker(false);
                                     }}
                                 >
-                                    <StatusBadge status={s} />
-                                    {status === s && <Text style={styles.checkmark}>✓</Text>}
+                                    <StatusBadge status={item} />
+                                    {status === item ? <Text style={styles.checkmark}>✓</Text> : null}
                                 </TouchableOpacity>
                             ))}
                         </ScrollView>
 
-                        {/* カスタムステータス追加 */}
                         <View style={styles.addStatusSection}>
                             {showAddStatus ? (
                                 <View style={styles.addStatusForm}>
@@ -420,31 +388,22 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
                                         placeholder="新しいステータス名"
                                         placeholderTextColor="#9CA3AF"
                                     />
-                                    <TouchableOpacity
-                                        style={styles.addStatusConfirm}
-                                        onPress={handleAddCustomStatus}
-                                    >
+                                    <TouchableOpacity style={styles.addStatusConfirm} onPress={() => void handleAddCustomStatus()}>
                                         <Text style={styles.addStatusConfirmText}>追加</Text>
                                     </TouchableOpacity>
                                 </View>
                             ) : (
-                                <TouchableOpacity
-                                    style={styles.addStatusButton}
-                                    onPress={() => setShowAddStatus(true)}
-                                >
-                                    <Text style={styles.addStatusButtonText}>
-                                        + カスタムステータスを追加
-                                    </Text>
+                                <TouchableOpacity style={styles.addStatusButton} onPress={() => setShowAddStatus(true)}>
+                                    <Text style={styles.addStatusButtonText}>+ カスタムステータスを追加</Text>
                                 </TouchableOpacity>
                             )}
                         </View>
                     </View>
                 </View>
             </Modal>
-        </ScrollView >
+        </ScrollView>
     );
 }
-
 
 const styles = StyleSheet.create({
     container: {
@@ -519,6 +478,30 @@ const styles = StyleSheet.create({
         color: '#4F46E5',
         fontWeight: '600',
     },
+    dateButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 12,
+        padding: 14,
+    },
+    dateButtonText: {
+        fontSize: 16,
+        color: '#1F2937',
+    },
+    dateButtonPlaceholder: {
+        color: '#9CA3AF',
+    },
+    clearButton: {
+        padding: 4,
+    },
+    clearButtonText: {
+        color: '#9CA3AF',
+        fontSize: 16,
+    },
     buttons: {
         flexDirection: 'row',
         gap: 12,
@@ -548,7 +531,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
     },
-    // Modal styles
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -634,31 +616,6 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontWeight: '600',
     },
-    // Date picker styles
-    dateButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        borderRadius: 12,
-        padding: 14,
-    },
-    dateButtonText: {
-        fontSize: 16,
-        color: '#1F2937',
-    },
-    dateButtonPlaceholder: {
-        color: '#9CA3AF',
-    },
-    clearButton: {
-        padding: 4,
-    },
-    clearButtonText: {
-        color: '#9CA3AF',
-        fontSize: 16,
-    },
     datePickerModal: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -689,4 +646,3 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 });
-

@@ -1,49 +1,51 @@
 import * as Calendar from 'expo-calendar';
 import { Platform } from 'react-native';
+import { parseDateOnly } from './date';
 
-// 権限をリクエスト
 export async function requestCalendarPermissions(): Promise<boolean> {
     try {
         const { status } = await Calendar.requestCalendarPermissionsAsync();
         return status === 'granted';
-    } catch (e) {
-        console.error('Calendar permission request failed:', e);
+    } catch (error) {
+        console.error('Calendar permission request failed:', error);
         return false;
     }
 }
 
-// 書き込み可能なデフォルトカレンダーのIDを取得
-// Android: プライマリ or Googleカレンダー優先
-// iOS: デフォルトカレンダー
 async function getDefaultCalendarId(): Promise<string | null> {
     try {
         if (Platform.OS === 'ios') {
-            const defaultCal = await Calendar.getDefaultCalendarAsync();
-            return defaultCal?.id ?? null;
+            const calendar = await Calendar.getDefaultCalendarAsync();
+            return calendar?.id ?? null;
         }
 
         const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-        const writable = calendars.filter(c => c.allowsModifications);
-
-        // プライマリカレンダーを優先
-        const primary = writable.find(c => (c as any).isPrimary);
+        const writable = calendars.filter((calendar) => calendar.allowsModifications);
+        const primary = writable.find((calendar) => (calendar as { isPrimary?: boolean }).isPrimary);
         if (primary) return primary.id;
 
-        // Googleカレンダーを次点に
-        const google = writable.find(c => c.source?.type === 'com.google');
+        const google = writable.find((calendar) => calendar.source?.type === 'com.google');
         if (google) return google.id;
 
         return writable[0]?.id ?? null;
-    } catch (e) {
-        console.error('Failed to get calendar:', e);
+    } catch (error) {
+        console.error('Failed to get calendar:', error);
         return null;
     }
 }
 
-// 面接イベントを新規作成し、eventId を返す（失敗時は null）
+function buildAllDayRange(interviewDate: string): { startDate: Date; endDate: Date } | null {
+    const startDate = parseDateOnly(interviewDate);
+    if (!startDate) return null;
+
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 1);
+    return { startDate, endDate };
+}
+
 export async function createCalendarEvent(
     companyName: string,
-    interviewDate: string // YYYY-MM-DD
+    interviewDate: string
 ): Promise<string | null> {
     try {
         const granted = await requestCalendarPermissions();
@@ -52,32 +54,28 @@ export async function createCalendarEvent(
         const calendarId = await getDefaultCalendarId();
         if (!calendarId) return null;
 
-        const parts = interviewDate.split('-').map(Number);
-        if (parts.length !== 3 || parts.some(isNaN)) return null;
-        const [year, month, day] = parts;
+        const range = buildAllDayRange(interviewDate);
+        if (!range) return null;
 
-        const eventId = await Calendar.createEventAsync(calendarId, {
+        return await Calendar.createEventAsync(calendarId, {
             title: `${companyName} 面接`,
-            startDate: new Date(year, month - 1, day, 9, 0, 0),
-            endDate: new Date(year, month - 1, day, 18, 0, 0),
-            notes: '就活管理アプリより自動作成',
-            alarms: [{ relativeOffset: -60 }], // 1時間前アラーム
+            startDate: range.startDate,
+            endDate: range.endDate,
+            allDay: true,
+            notes: '就活アプリから作成された予定です。',
+            alarms: [{ relativeOffset: -60 }],
         });
-
-        return eventId;
-    } catch (e) {
-        console.error('Failed to create calendar event:', e);
+    } catch (error) {
+        console.error('Failed to create calendar event:', error);
         return null;
     }
 }
 
-// 既存イベントを更新する。イベントが削除済みの場合は再作成して新しいIDを返す
 export async function updateCalendarEvent(
     eventId: string | null,
     companyName: string,
     interviewDate: string
 ): Promise<string | null> {
-    // eventId がなければ新規作成
     if (!eventId) {
         return createCalendarEvent(companyName, interviewDate);
     }
@@ -86,29 +84,26 @@ export async function updateCalendarEvent(
         const granted = await requestCalendarPermissions();
         if (!granted) return eventId;
 
-        const parts = interviewDate.split('-').map(Number);
-        if (parts.length !== 3 || parts.some(isNaN)) return eventId;
-        const [year, month, day] = parts;
+        const range = buildAllDayRange(interviewDate);
+        if (!range) return eventId;
 
         await Calendar.updateEventAsync(eventId, {
             title: `${companyName} 面接`,
-            startDate: new Date(year, month - 1, day, 9, 0, 0),
-            endDate: new Date(year, month - 1, day, 18, 0, 0),
+            startDate: range.startDate,
+            endDate: range.endDate,
+            allDay: true,
         });
-
         return eventId;
-    } catch (e) {
-        // イベントがカレンダー側で削除されていた場合は再作成
-        console.warn('Calendar event not found, recreating:', e);
+    } catch (error) {
+        console.warn('Calendar event not found, recreating:', error);
         return createCalendarEvent(companyName, interviewDate);
     }
 }
 
-// イベントを削除（存在しない場合は無視）
 export async function deleteCalendarEvent(eventId: string): Promise<void> {
     try {
         await Calendar.deleteEventAsync(eventId);
-    } catch (e) {
-        // 既にカレンダーから削除済みの場合は無視
+    } catch {
+        // Ignore missing events.
     }
 }

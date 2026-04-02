@@ -1,27 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    View,
+    Alert,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
     Text,
     TextInput,
-    StyleSheet,
-    Modal,
     TouchableOpacity,
-    ScrollView,
-    Platform,
-    Alert,
+    View,
 } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { SelectionEvent, SelectionEventInput } from '../types/company';
-import { EVENT_TYPES, EVENT_RESULTS, RESULT_COLORS } from '../constants/status';
-import { formatDisplayDate } from '../utils/date';
+import { EVENT_RESULTS, EVENT_TYPES, RESULT_COLORS } from '../constants/status';
+import type { SelectionEvent, SelectionEventInput } from '../types/company';
+import { formatDisplayDate, parseDateOnly } from '../utils/date';
 
 interface AddEventModalProps {
     visible: boolean;
     companyId: string;
-    initialEvent?: SelectionEvent; // 編集時に使用
+    initialEvent?: SelectionEvent;
     onSubmit: (input: SelectionEventInput) => void;
-    onDelete?: () => void; // 編集時の削除
+    onDelete?: () => void;
     onClose: () => void;
+}
+
+function parsePickerDate(dateString: string): Date {
+    return parseDateOnly(dateString) ?? new Date();
 }
 
 export function AddEventModal({
@@ -30,34 +34,38 @@ export function AddEventModal({
     initialEvent,
     onSubmit,
     onDelete,
-    onClose
+    onClose,
 }: AddEventModalProps) {
-    const [eventType, setEventType] = useState(initialEvent?.eventType || 'ES提出');
-    const [eventDate, setEventDate] = useState(initialEvent?.eventDate || '');
-    const [result, setResult] = useState(initialEvent?.result || '結果待ち');
-    const [notes, setNotes] = useState(initialEvent?.notes || '');
+    const [eventType, setEventType] = useState<SelectionEventInput['eventType']>(initialEvent?.eventType ?? EVENT_TYPES[0]);
+    const [eventDate, setEventDate] = useState(initialEvent?.eventDate ?? '');
+    const [result, setResult] = useState<SelectionEventInput['result']>(initialEvent?.result ?? EVENT_RESULTS[0]);
+    const [notes, setNotes] = useState(initialEvent?.notes ?? '');
     const [showDatePicker, setShowDatePicker] = useState(false);
 
-    const isEditing = !!initialEvent;
+    const isEditing = Boolean(initialEvent);
 
-    // 編集対象のイベントが変わった場合にフォームを同期
     useEffect(() => {
-        if (initialEvent) {
-            setEventType(initialEvent.eventType);
-            setEventDate(initialEvent.eventDate || '');
-            setResult(initialEvent.result);
-            setNotes(initialEvent.notes || '');
-        }
+        if (!initialEvent) return;
+        setEventType(initialEvent.eventType);
+        setEventDate(initialEvent.eventDate ?? '');
+        setResult(initialEvent.result);
+        setNotes(initialEvent.notes ?? '');
     }, [initialEvent]);
 
-    // 新規追加モードで開かれた場合はフォームをリセット
     useEffect(() => {
         if (visible && !initialEvent) {
             resetForm();
         }
-    }, [visible]);
+    }, [visible, initialEvent]);
 
-    const handleSubmit = () => {
+    function resetForm(): void {
+        setEventType(EVENT_TYPES[0]);
+        setEventDate('');
+        setResult(EVENT_RESULTS[0]);
+        setNotes('');
+    }
+
+    function handleSubmit(): void {
         onSubmit({
             companyId,
             eventType,
@@ -67,148 +75,105 @@ export function AddEventModal({
         });
         resetForm();
         onClose();
-    };
+    }
 
-    const handleDelete = () => {
+    function handleDelete(): void {
         Alert.alert(
             '削除確認',
-            'この選考記録を削除しますか？',
+            'この選考イベントを削除しますか？',
             [
                 { text: 'キャンセル', style: 'cancel' },
                 {
-                    text: '削除', style: 'destructive', onPress: () => {
+                    text: '削除',
+                    style: 'destructive',
+                    onPress: () => {
                         onDelete?.();
                         onClose();
-                    }
+                    },
                 },
             ]
         );
-    };
+    }
 
-    const resetForm = () => {
-        setEventType('ES提出');
-        setEventDate('');
-        setResult('結果待ち');
-        setNotes('');
-    };
-
-    const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    function handleDateChange(event: DateTimePickerEvent, selectedDate?: Date): void {
         if (Platform.OS === 'android') {
             setShowDatePicker(false);
         }
-        if (selectedDate && event.type !== 'dismissed') {
-            // toISOString()はUTC変換で日付がズレるためローカル日付を使用
-            const year = selectedDate.getFullYear();
-            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const day = String(selectedDate.getDate()).padStart(2, '0');
-            setEventDate(`${year}-${month}-${day}`);
-        }
-    };
 
-    const parseDate = (dateString: string): Date => {
-        if (dateString) {
-            const parsed = new Date(dateString);
-            if (!isNaN(parsed.getTime())) {
-                return parsed;
-            }
+        if (selectedDate && event.type !== 'dismissed') {
+            setEventDate(`${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`);
         }
-        return new Date();
-    };
+    }
 
     return (
-        <Modal
-            visible={visible}
-            animationType="slide"
-            transparent
-            onRequestClose={onClose}
-        >
+        <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
             <View style={styles.overlay}>
                 <View style={styles.container}>
                     <View style={styles.header}>
-                        <Text style={styles.title}>
-                            {isEditing ? '選考を編集' : '選考を追加'}
-                        </Text>
+                        <Text style={styles.title}>{isEditing ? '選考イベントを編集' : '選考イベントを追加'}</Text>
                         <TouchableOpacity onPress={onClose}>
                             <Text style={styles.closeButton}>閉じる</Text>
                         </TouchableOpacity>
                     </View>
 
                     <ScrollView style={styles.content}>
-                        {/* イベント種類 */}
                         <View style={styles.field}>
-                            <Text style={styles.label}>選考種類</Text>
+                            <Text style={styles.label}>イベント種別</Text>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                 <View style={styles.chipContainer}>
                                     {EVENT_TYPES.map((type) => (
                                         <TouchableOpacity
                                             key={type}
-                                            style={[
-                                                styles.chip,
-                                                eventType === type && styles.chipSelected
-                                            ]}
+                                            style={[styles.chip, eventType === type && styles.chipSelected]}
                                             onPress={() => setEventType(type)}
                                         >
-                                            <Text style={[
-                                                styles.chipText,
-                                                eventType === type && styles.chipTextSelected
-                                            ]}>{type}</Text>
+                                            <Text style={[styles.chipText, eventType === type && styles.chipTextSelected]}>
+                                                {type}
+                                            </Text>
                                         </TouchableOpacity>
                                     ))}
                                 </View>
                             </ScrollView>
                         </View>
 
-                        {/* 実施日 */}
                         <View style={styles.field}>
                             <Text style={styles.label}>実施日</Text>
-                            <TouchableOpacity
-                                style={styles.dateButton}
-                                onPress={() => setShowDatePicker(true)}
-                            >
-                                <Text style={[
-                                    styles.dateButtonText,
-                                    !eventDate && styles.dateButtonPlaceholder
-                                ]}>
-                                    {eventDate ? formatDisplayDate(eventDate) : '📅 日付を選択'}
+                            <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
+                                <Text style={[styles.dateButtonText, !eventDate && styles.dateButtonPlaceholder]}>
+                                    {eventDate ? formatDisplayDate(eventDate) : '日付を選択'}
                                 </Text>
-                                {eventDate && (
+                                {eventDate ? (
                                     <TouchableOpacity onPress={() => setEventDate('')}>
-                                        <Text style={styles.clearButton}>✕</Text>
+                                        <Text style={styles.clearButton}>×</Text>
                                     </TouchableOpacity>
-                                )}
+                                ) : null}
                             </TouchableOpacity>
                         </View>
 
-                        {/* 結果 */}
                         <View style={styles.field}>
                             <Text style={styles.label}>結果</Text>
                             <View style={styles.resultContainer}>
-                                {EVENT_RESULTS.map((r) => (
+                                {EVENT_RESULTS.map((item) => (
                                     <TouchableOpacity
-                                        key={r}
-                                        style={[
-                                            styles.resultButton,
-                                            result === r && { backgroundColor: RESULT_COLORS[r] }
-                                        ]}
-                                        onPress={() => setResult(r)}
+                                        key={item}
+                                        style={[styles.resultButton, result === item && { backgroundColor: RESULT_COLORS[item] }]}
+                                        onPress={() => setResult(item)}
                                     >
-                                        <Text style={[
-                                            styles.resultButtonText,
-                                            result === r && styles.resultButtonTextSelected
-                                        ]}>{r}</Text>
+                                        <Text style={[styles.resultButtonText, result === item && styles.resultButtonTextSelected]}>
+                                            {item}
+                                        </Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>
                         </View>
 
-                        {/* メモ */}
                         <View style={styles.field}>
-                            <Text style={styles.label}>メモ（任意）</Text>
+                            <Text style={styles.label}>メモ</Text>
                             <TextInput
                                 style={styles.notesInput}
                                 value={notes}
                                 onChangeText={setNotes}
-                                placeholder="面接の内容、質問など"
+                                placeholder="面接内容や振り返り"
                                 placeholderTextColor="#9CA3AF"
                                 multiline
                                 numberOfLines={4}
@@ -218,20 +183,17 @@ export function AddEventModal({
                     </ScrollView>
 
                     <View style={styles.footer}>
-                        {isEditing && (
+                        {isEditing ? (
                             <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
                                 <Text style={styles.deleteButtonText}>削除</Text>
                             </TouchableOpacity>
-                        )}
+                        ) : null}
                         <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-                            <Text style={styles.submitButtonText}>
-                                {isEditing ? '更新' : '追加'}
-                            </Text>
+                            <Text style={styles.submitButtonText}>{isEditing ? '更新' : '追加'}</Text>
                         </TouchableOpacity>
                     </View>
 
-                    {/* Date Picker Modal */}
-                    {showDatePicker && (
+                    {showDatePicker ? (
                         <Modal
                             visible={showDatePicker}
                             transparent
@@ -247,7 +209,7 @@ export function AddEventModal({
                                         </TouchableOpacity>
                                     </View>
                                     <DateTimePicker
-                                        value={parseDate(eventDate)}
+                                        value={parsePickerDate(eventDate)}
                                         mode="date"
                                         display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                                         onChange={handleDateChange}
@@ -256,7 +218,7 @@ export function AddEventModal({
                                 </View>
                             </View>
                         </Modal>
-                    )}
+                    ) : null}
                 </View>
             </View>
         </Modal>

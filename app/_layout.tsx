@@ -1,17 +1,10 @@
-import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, StyleSheet } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { requestNotificationPermissions } from '../utils/notifications';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export default function RootLayout() {
-    useEffect(() => {
-        // アプリ起動時に通知権限をリクエスト
-        requestNotificationPermissions();
-    }, []);
-
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <SafeAreaProvider>

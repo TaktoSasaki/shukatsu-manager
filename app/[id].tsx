@@ -1,34 +1,39 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
+    ActivityIndicator,
     Alert,
     Linking,
-    ActivityIndicator,
+    ScrollView,
+    StyleSheet,
+    Text,
     TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack, useFocusEffect } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Company, CompanyInput, SelectionEvent, SelectionEventInput } from '../types/company';
-import {
-    getCompanyById,
-    updateCompany,
-    deleteCompany,
-    getSelectionEventsByCompany,
-    createSelectionEvent,
-    updateSelectionEvent,
-    deleteSelectionEvent,
-} from '../database/repository';
-import { CompanyForm } from '../components/CompanyForm';
-import { StatusBadge } from '../components/StatusBadge';
-import { SelectionTimeline } from '../components/SelectionTimeline';
-import { AddEventModal } from '../components/AddEventModal';
-import { formatDisplayDate, getDaysRemaining } from '../utils/date';
 import * as Clipboard from 'expo-clipboard';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { AddEventModal } from '../components/AddEventModal';
+import { CompanyForm } from '../components/CompanyForm';
+import { SelectionTimeline } from '../components/SelectionTimeline';
+import { StatusBadge } from '../components/StatusBadge';
 import { TranscriptionView } from '../components/TranscriptionView';
+import {
+    createSelectionEvent,
+    deleteCompany,
+    deleteSelectionEvent,
+    getCompanyById,
+    getSelectionEventsByCompany,
+    updateCompany,
+    updateSelectionEvent,
+} from '../database/repository';
+import type { Company, CompanyInput, SelectionEvent, SelectionEventInput } from '../types/company';
+import { formatDisplayDate, getDaysRemaining } from '../utils/date';
+
+function normalizeNullable(value: string): string | null {
+    const normalized = value.trim();
+    return normalized ? normalized : null;
+}
 
 export default function CompanyDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -42,25 +47,12 @@ export default function CompanyDetailScreen() {
     const [isEditingId, setIsEditingId] = useState(false);
     const [tempLoginId, setTempLoginId] = useState('');
 
-    const handleSaveLoginId = async () => {
-        if (!id || !company) return;
-        try {
-            const updated = await updateCompany(id, { loginId: tempLoginId });
-            if (updated) {
-                setCompany(updated);
-                setIsEditingId(false);
-            }
-        } catch (error) {
-            console.error('Failed to update login ID:', error);
-            Alert.alert('エラー', 'ログインIDの更新に失敗しました');
-        }
-    };
-
     const loadData = useCallback(async () => {
         if (!id) {
             setLoading(false);
             return;
         }
+
         try {
             const [companyData, eventsData] = await Promise.all([
                 getCompanyById(id),
@@ -69,7 +61,8 @@ export default function CompanyDetailScreen() {
             setCompany(companyData);
             setEvents(eventsData);
         } catch (error) {
-            console.error('Failed to load data:', error);
+            console.error('Failed to load company detail:', error);
+            Alert.alert('エラー', '企業データの読み込みに失敗しました');
         } finally {
             setLoading(false);
         }
@@ -77,12 +70,28 @@ export default function CompanyDetailScreen() {
 
     useFocusEffect(
         useCallback(() => {
-            loadData();
+            void loadData();
         }, [loadData])
     );
 
-    const handleUpdate = async (data: CompanyInput) => {
+    async function handleSaveLoginId(): Promise<void> {
         if (!id || !company) return;
+
+        try {
+            const updated = await updateCompany(id, { loginId: normalizeNullable(tempLoginId) });
+            if (updated) {
+                setCompany(updated);
+                setIsEditingId(false);
+            }
+        } catch (error) {
+            console.error('Failed to update login ID:', error);
+            Alert.alert('エラー', 'ログインIDの更新に失敗しました');
+        }
+    }
+
+    async function handleUpdate(data: CompanyInput): Promise<void> {
+        if (!id || !company) return;
+
         try {
             const updated = await updateCompany(id, data);
             if (updated) {
@@ -93,12 +102,12 @@ export default function CompanyDetailScreen() {
             console.error('Failed to update company:', error);
             Alert.alert('エラー', '企業情報の更新に失敗しました');
         }
-    };
+    }
 
-    const handleDelete = () => {
+    function handleDelete(): void {
         Alert.alert(
             '削除確認',
-            `「${company?.companyName}」を削除しますか？この操作は取り消せません。`,
+            `${company?.companyName ?? 'この企業'} を削除しますか？この操作は元に戻せません。`,
             [
                 { text: 'キャンセル', style: 'cancel' },
                 {
@@ -117,32 +126,39 @@ export default function CompanyDetailScreen() {
                 },
             ]
         );
-    };
+    }
 
-    const openMyPage = () => {
+    async function openMyPage(): Promise<void> {
         const url = company?.myPageUrl;
         if (!url) return;
-        if (!url.startsWith('http://') && !url.startsWith('https://')) {
-            Alert.alert('エラー', '有効なURLではありません');
-            return;
-        }
-        Linking.openURL(url).catch(() => {
-            Alert.alert('エラー', 'URLを開けませんでした');
-        });
-    };
 
-    const handleAddEvent = async (input: SelectionEventInput) => {
+        try {
+            const supported = await Linking.canOpenURL(url);
+            if (!supported) {
+                Alert.alert('エラー', 'URLを開けませんでした');
+                return;
+            }
+
+            await Linking.openURL(url);
+        } catch (error) {
+            console.error('Failed to open URL:', error);
+            Alert.alert('エラー', 'URLを開けませんでした');
+        }
+    }
+
+    async function handleAddEvent(input: SelectionEventInput): Promise<void> {
         try {
             await createSelectionEvent(input);
-            await loadData(); // リロードして最新状態を取得
+            await loadData();
         } catch (error) {
             console.error('Failed to add event:', error);
             Alert.alert('エラー', '選考イベントの追加に失敗しました');
         }
-    };
+    }
 
-    const handleUpdateEvent = async (input: SelectionEventInput) => {
+    async function handleUpdateEvent(input: SelectionEventInput): Promise<void> {
         if (!editingEvent) return;
+
         try {
             await updateSelectionEvent(editingEvent.id, input);
             await loadData();
@@ -150,10 +166,11 @@ export default function CompanyDetailScreen() {
             console.error('Failed to update event:', error);
             Alert.alert('エラー', '選考イベントの更新に失敗しました');
         }
-    };
+    }
 
-    const handleDeleteEvent = async () => {
+    async function handleDeleteEvent(): Promise<void> {
         if (!editingEvent) return;
+
         try {
             await deleteSelectionEvent(editingEvent.id);
             setEditingEvent(undefined);
@@ -162,17 +179,12 @@ export default function CompanyDetailScreen() {
             console.error('Failed to delete event:', error);
             Alert.alert('エラー', '選考イベントの削除に失敗しました');
         }
-    };
+    }
 
-    const handleEventPress = (event: SelectionEvent) => {
-        setEditingEvent(event);
-        setShowEventModal(true);
-    };
-
-    const handleCloseEventModal = () => {
+    function handleCloseEventModal(): void {
         setShowEventModal(false);
         setEditingEvent(undefined);
-    };
+    }
 
     if (loading) {
         return (
@@ -196,7 +208,7 @@ export default function CompanyDetailScreen() {
                 <Stack.Screen options={{ title: '企業を編集' }} />
                 <CompanyForm
                     initialData={company}
-                    onSubmit={handleUpdate}
+                    onSubmit={(data) => void handleUpdate(data)}
                     onCancel={() => setEditing(false)}
                 />
             </>
@@ -208,21 +220,20 @@ export default function CompanyDetailScreen() {
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
             <Stack.Screen options={{ title: company.companyName }} />
+
             <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-                {/* ヘッダー */}
                 <View style={styles.header}>
                     <View style={styles.titleRow}>
                         <Text style={styles.companyName}>{company.companyName}</Text>
                         <StatusBadge status={company.status} />
                     </View>
 
-                    {company.myPageUrl && (
-                        <TouchableOpacity style={styles.myPageButton} onPress={openMyPage}>
+                    {company.myPageUrl ? (
+                        <TouchableOpacity style={styles.myPageButton} onPress={() => void openMyPage()}>
                             <Text style={styles.myPageButtonText}>マイページを開く</Text>
                         </TouchableOpacity>
-                    )}
+                    ) : null}
 
-                    {/* ログインIDセクション */}
                     <View style={styles.loginIdContainer}>
                         {isEditingId ? (
                             <View style={styles.loginIdEditContainer}>
@@ -238,15 +249,12 @@ export default function CompanyDetailScreen() {
                                         style={styles.cancelButton}
                                         onPress={() => {
                                             setIsEditingId(false);
-                                            setTempLoginId(company.loginId || '');
+                                            setTempLoginId(company.loginId ?? '');
                                         }}
                                     >
                                         <Text style={styles.cancelButtonText}>キャンセル</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={styles.saveButton}
-                                        onPress={handleSaveLoginId}
-                                    >
+                                    <TouchableOpacity style={styles.saveButton} onPress={() => void handleSaveLoginId()}>
                                         <Text style={styles.saveButtonText}>保存</Text>
                                     </TouchableOpacity>
                                 </View>
@@ -255,24 +263,25 @@ export default function CompanyDetailScreen() {
                             <>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.loginIdLabel}>ログインID</Text>
-                                    <Text style={styles.loginIdValue}>{company.loginId || '(未設定)'}</Text>
+                                    <Text style={styles.loginIdValue}>{company.loginId ?? '(未設定)'}</Text>
                                 </View>
                                 <View style={styles.loginIdActions}>
-                                    {company.loginId && (
+                                    {company.loginId ? (
                                         <TouchableOpacity
                                             style={styles.copyButton}
                                             onPress={async () => {
-                                                await Clipboard.setStringAsync(company.loginId!);
+                                                await Clipboard.setStringAsync(company.loginId ?? '');
                                                 Alert.alert('コピーしました', 'ログインIDをクリップボードにコピーしました');
                                             }}
                                         >
                                             <Text style={styles.copyButtonText}>コピー</Text>
                                         </TouchableOpacity>
-                                    )}
+                                    ) : null}
+
                                     <TouchableOpacity
                                         style={styles.editIdButton}
                                         onPress={() => {
-                                            setTempLoginId(company.loginId || '');
+                                            setTempLoginId(company.loginId ?? '');
                                             setIsEditingId(true);
                                         }}
                                     >
@@ -284,103 +293,92 @@ export default function CompanyDetailScreen() {
                     </View>
                 </View>
 
-                {/* 選考履歴 */}
                 <SelectionTimeline
                     events={events}
-                    onEventPress={handleEventPress}
+                    onEventPress={(event) => {
+                        setEditingEvent(event);
+                        setShowEventModal(true);
+                    }}
                     onAddPress={() => setShowEventModal(true)}
                 />
 
-                {/* 面接録音・文字起こし */}
                 <TranscriptionView
-                    companyId={id}
                     existingTranscription={company.transcription}
                     onTranscriptionComplete={async (text) => {
                         if (!id) return;
-                        try {
-                            const updated = await updateCompany(id, { transcription: text || null });
-                            if (updated) setCompany(updated);
-                        } catch (error) {
-                            console.error('Failed to save transcription:', error);
-                            Alert.alert('エラー', '文字起こしの保存に失敗しました');
+                        const updated = await updateCompany(id, { transcription: text || null });
+                        if (updated) {
+                            setCompany(updated);
                         }
                     }}
                 />
 
-                {/* 基本情報 */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>基本情報</Text>
-
-                    <DetailRow label="応募職種" value={company.position} />
+                    <DetailRow label="職種" value={company.position} />
                     <DetailRow label="エントリー日" value={formatDisplayDate(company.entryDate)} />
 
                     <View style={styles.detailRow}>
                         <Text style={styles.detailLabel}>次回面接日</Text>
                         <View style={styles.detailValueContainer}>
-                            <Text style={styles.detailValue}>
-                                {formatDisplayDate(company.nextInterviewDate)}
-                            </Text>
-                            {daysRemaining !== null && (
-                                <Text style={[
-                                    styles.daysRemaining,
-                                    daysRemaining <= 3 && daysRemaining >= 0 ? styles.urgent : null,
-                                    daysRemaining < 0 ? styles.passed : null,
-                                ]}>
-                                    {daysRemaining === 0 ? '今日' :
-                                        daysRemaining > 0 ? `あと${daysRemaining}日` :
-                                            `${Math.abs(daysRemaining)}日前`}
+                            <Text style={styles.detailValue}>{formatDisplayDate(company.nextInterviewDate)}</Text>
+                            {daysRemaining !== null ? (
+                                <Text
+                                    style={[
+                                        styles.daysRemaining,
+                                        daysRemaining <= 3 && daysRemaining >= 0 ? styles.urgent : null,
+                                        daysRemaining < 0 ? styles.passed : null,
+                                    ]}
+                                >
+                                    {daysRemaining === 0
+                                        ? '今日'
+                                        : daysRemaining > 0
+                                            ? `あと${daysRemaining}日`
+                                            : `${Math.abs(daysRemaining)}日経過`}
                                 </Text>
-                            )}
+                            ) : null}
                         </View>
                     </View>
                 </View>
 
-                {company.esContent && (
+                {company.esContent ? (
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>使用したES</Text>
+                        <Text style={styles.sectionTitle}>ES内容</Text>
                         <Text style={styles.longText}>{company.esContent}</Text>
                     </View>
-                )}
+                ) : null}
 
-                {company.motivation && (
+                {company.motivation ? (
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>志望動機</Text>
                         <Text style={styles.longText}>{company.motivation}</Text>
                     </View>
-                )}
+                ) : null}
 
-                {company.notes && (
+                {company.notes ? (
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>その他メモ</Text>
+                        <Text style={styles.sectionTitle}>メモ</Text>
                         <Text style={styles.longText}>{company.notes}</Text>
                     </View>
-                )}
+                ) : null}
 
-                {/* アクションボタン */}
                 <View style={styles.actions}>
-                    <TouchableOpacity
-                        style={styles.editButton}
-                        onPress={() => setEditing(true)}
-                    >
+                    <TouchableOpacity style={styles.editButton} onPress={() => setEditing(true)}>
                         <Text style={styles.editButtonText}>編集する</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={styles.deleteButton}
-                        onPress={handleDelete}
-                    >
+                    <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
                         <Text style={styles.deleteButtonText}>削除</Text>
                     </TouchableOpacity>
                 </View>
             </ScrollView>
 
-            {/* 選考イベント追加/編集モーダル */}
             <AddEventModal
                 visible={showEventModal}
-                companyId={id}
+                companyId={id ?? ''}
                 initialEvent={editingEvent}
-                onSubmit={editingEvent ? handleUpdateEvent : handleAddEvent}
-                onDelete={editingEvent ? handleDeleteEvent : undefined}
+                onSubmit={editingEvent ? (input) => void handleUpdateEvent(input) : (input) => void handleAddEvent(input)}
+                onDelete={editingEvent ? () => void handleDeleteEvent() : undefined}
                 onClose={handleCloseEventModal}
             />
         </SafeAreaView>

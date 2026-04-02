@@ -2,7 +2,7 @@
   "expo": {
     "name": "就活管理",
     "slug": "shukatsu-manager",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -21,7 +21,7 @@
       }
     },
     "android": {
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#4F46E5"
@@ -50,20 +50,20 @@
       [
         "expo-av",
         {
-          "microphonePermission": "面接の音声を録音して文字起こしするためにマイクへのアクセスが必要です。"
+          "microphonePermission": "面接音声を録音して文字起こしするためにマイクへのアクセスが必要です。"
         }
       ],
       "expo-file-system",
       [
         "expo-calendar",
         {
-          "calendarPermission": "面接予定をカレンダーに自動登録するためにカレンダーへのアクセスが必要です。"
+          "calendarPermission": "面接日をカレンダーに登録するためにカレンダーへのアクセスが必要です。"
         }
       ],
       [
         "expo-camera",
         {
-          "cameraPermission": "QRコードをスキャンしてマイページURLを取得するためにカメラへのアクセスが必要です。"
+          "cameraPermission": "QRコードを読み取ってマイページURLを登録するためにカメラへのアクセスが必要です。"
         }
       ]
     ]
