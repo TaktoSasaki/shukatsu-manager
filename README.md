@@ -1,6 +1,6 @@
 # 就活マネージャー (Shukatsu Manager)
 
-**Version 1.0.0** | [更新履歴](./CHANGELOG.md)
+**Version 1.0.1** | [更新履歴](./CHANGELOG.md)
 
 就職活動を効率的に管理するためのモバイルアプリケーション。
 
