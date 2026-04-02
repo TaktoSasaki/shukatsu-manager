@@ -1,185 +1,207 @@
-# 就活マネージャー (Shukatsu Manager)
+# 就活管理 (Shukatsu Manager)
 
 **Version 1.0.2** | [更新履歴](./CHANGELOG.md)
 
-就職活動を効率的に管理するためのモバイルアプリケーション。
+就職活動の応募先、選考履歴、面接メモを 1 つのアプリで管理するための Expo / React Native アプリです。
 
 ## 機能
 
-- **企業管理**: 応募企業の情報（会社名・マイページURL・ES内容など）を一元管理
-- **面接録音とAI文字起こし**: オフライン・完全ローカルで動作するAI（Whisper small）を用いて面接の音声を録音・自動文字起こし
-- **バックグラウンド録音**: 他アプリへの切り替えや画面オフ中も録音を継続（iOS: UIBackgroundModes / Android: フォアグラウンドサービス）
-- **QRコードスキャン**: 企業マイページのQRコードをカメラで読み取り、URLを自動入力
-- **選考進捗トラッキング**: ES提出、面接、GDなどの選考イベントをタイムライン形式で表示
-- **Googleカレンダー連携**: 面接予定日を自動でカレンダーに登録
-- **カスタムステータス**: 自分好みのステータス（選考中、内定、辞退など）を作成・管理
-- **リマインダー通知**: 面接当日の朝7時に自動でプッシュ通知
-- **ドラッグ並べ替え**: 企業カードを手動で並べ替え可能
-- **ソート機能**: ステータス順、面接日順など複数の並び替えオプション
+- 企業情報の登録・編集・削除
+- ログインID、マイページURL、ES、志望動機、メモの保存
+- QRコードからのマイページURL入力
+- 選考イベントの追加・編集・削除
+- 選考イベントに応じた企業ステータスの自動再計算
+- 面接予定日の通知
+- 端末カレンダーへの面接予定登録
+- 面接音声の録音とローカル Whisper による文字起こし
+- ステータス順、面接日順、手動順での並び替え
+- カスタムステータスの追加
 
 ## 技術スタック
 
-### コアフレームワーク
+| 項目 | 採用技術 |
+|---|---|
+| アプリ基盤 | Expo 54, React Native 0.81, React 19 |
+| 画面遷移 | expo-router |
+| DB | expo-sqlite |
+| 通知 | expo-notifications |
+| カレンダー | expo-calendar |
+| QR読み取り | expo-camera |
+| 録音 | react-native-audio-record, expo-av |
+| Android 背景録音 | react-native-background-actions |
+| 文字起こし | whisper.rn |
 
-| 技術 | バージョン | 用途 |
-|-----|---------|------|
-| Expo | ~54.0.33 | React Nativeの開発プラットフォーム（EAS Build/Prebuild利用） |
-| React Native | 0.81.5 | クロスプラットフォームモバイルアプリ開発 |
-| React | 19.x | UIコンポーネントライブラリ |
-| TypeScript | ~5.9.2 | 型安全な開発環境 |
+## 重要な前提
 
-### AI・音声機能
+このアプリは `whisper.rn`、`react-native-audio-record`、`react-native-background-actions` などのネイティブ依存を含みます。  
+そのため **Expo Go では動作しません**。`expo run:android` / `expo run:ios`、または EAS Build を前提にしてください。
 
-| 技術 | 用途 |
-|-----|------|
-| whisper.rn | 面接録音を端末内でAI文字起こし（ローカルWhisper small・オフライン動作） |
-| react-native-audio-record | マイクを使った低レベルWAV録音（AudioRecord API） |
-| expo-av | 録音セッション管理・バックグラウンドオーディオ設定（iOS） |
-| expo-file-system | AIモデル（ggml-small.bin）および録音WAVファイルの管理 |
-
-### バックグラウンド処理
-
-| 技術 | 用途 |
-|-----|------|
-| react-native-background-actions | Android フォアグラウンドサービス起動。画面オフ・他アプリ切り替え時の録音継続を保証 |
-| expo-notifications | 録音中の常駐通知（iOS）・面接リマインダー通知 |
-
-### カメラ・外部連携
-
-| 技術 | 用途 |
-|-----|------|
-| expo-camera | QRコードスキャン（マイページURL自動入力） |
-| expo-calendar | 面接予定日のGoogleカレンダー自動登録 |
-| expo-clipboard | ログインID・文字起こし結果のコピー |
-| expo-linking | マイページURLのブラウザ起動 |
-
-### ナビゲーション・ルーティング
-
-| 技術 | 用途 |
-|-----|------|
-| expo-router | ファイルベースルーティング（Next.js風） |
-| react-native-screens | ネイティブスクリーン最適化 |
-
-### データ永続化
-
-| 技術 | 用途 |
-|-----|------|
-| expo-sqlite | ローカルSQLiteデータベース。企業・選考イベント・文字起こし結果の保存 |
-
-### UI・インタラクション
-
-| 技術 | 用途 |
-|-----|------|
-| react-native-gesture-handler | ジェスチャー認識（長押し、スワイプ等） |
-| react-native-reanimated | 高性能アニメーション |
-| react-native-draggable-flatlist | ドラッグ並べ替え可能リスト |
-| @react-native-community/datetimepicker | 日付・時刻ピッカー |
-| expo-haptics | 長押し時の触覚フィードバック |
-
-## プロジェクト構造
-
-```
-shukatsu-manager/
-├── app/                        # 画面コンポーネント（expo-router）
-│   ├── index.tsx              # ホーム画面（企業一覧・並べ替え）
-│   ├── [id].tsx               # 企業詳細・編集・録音画面
-│   ├── add.tsx                # 企業追加画面
-│   └── _layout.tsx            # ナビゲーション設定・通知権限リクエスト
-├── components/                 # 再利用可能なコンポーネント
-│   ├── TranscriptionView.tsx  # 録音UI・Whisper文字起こし結果表示
-│   ├── QRScannerModal.tsx     # QRコードスキャナーモーダル
-│   ├── AddEventModal.tsx      # 選考イベント追加・編集モーダル
-│   ├── CompanyCard.tsx        # 企業カード（一覧用）
-│   ├── CompanyForm.tsx        # 企業情報入力フォーム（QRスキャン統合）
-│   ├── SelectionTimeline.tsx  # 選考タイムライン
-│   └── StatusBadge.tsx        # ステータスバッジ
-├── database/                   # データベース関連
-│   ├── schema.ts              # テーブル定義・初期化
-│   └── repository.ts          # CRUD操作
-├── types/                      # 型定義
-│   └── company.ts             # Company, SelectionEvent 等
-├── utils/                      # ユーティリティ
-│   ├── whisperLocal.ts        # Whisperモデルダウンロード・文字起こし実行
-│   ├── audioRecorder.ts       # 録音制御・バックグラウンドサービス管理
-│   ├── calendar.ts            # Googleカレンダー連携
-│   ├── date.ts                # 日付フォーマット・残り日数計算
-│   └── notifications.ts       # 面接リマインダー・録音中通知
-├── constants/                  # 定数
-│   └── status.ts              # デフォルトステータスリスト
-└── android/                    # Androidネイティブプロジェクト（prebuild済み）
-```
-
-## セットアップと実行
-
-本アプリは `whisper.rn`・`react-native-audio-record`・`react-native-background-actions` などネイティブコード依存のライブラリを使用しているため、**標準の Expo Go アプリでは動作しません**（Prebuild または EAS Build によるネイティブビルドが必要です）。
-
-### 1. 開発用ローカルビルド
+## セットアップ
 
 ```bash
-# パッケージのインストール
 npm install
-
-# iOSシミュレーターでの実行
-npx expo run:ios
-
-# Androidエミュレーターまたは接続された実機での実行
-npx expo run:android
 ```
 
-### 2. Android APK のビルド
+### 開発ビルド
 
-**EASでのクラウドビルド（要Expoアカウント）:**
+```bash
+npx expo run:android
+npx expo run:ios
+```
+
+### 型チェック
+
+```bash
+npm run typecheck
+```
+
+## ビルド
+
+### EAS Build
+
 ```bash
 npm install -g eas-cli
 eas build -p android --profile preview
 ```
 
-**ローカルでのAPKビルド:**
+### ローカル Android ビルド
+
 ```bash
 npx expo run:android --variant release
-# 生成先: android/app/build/outputs/apk/release/app-release.apk
 ```
 
-## バックグラウンド録音の仕組み
+生成先の例:
 
-| プラットフォーム | 方式 | 画面オフ対応 |
-|----------|------|-----------|
-| iOS | `UIBackgroundModes: ["audio"]` + `staysActiveInBackground: true` | ✅ |
-| Android | `react-native-background-actions` によるフォアグラウンドサービス（`foregroundServiceType="microphone"`） + `WAKE_LOCK` | ✅ |
+```text
+android/app/build/outputs/apk/release/app-release.apk
+```
 
-録音開始時のみバックグラウンド動作が有効になり、録音停止後は自動的に解除されます。
+## 権限
+
+このアプリでは以下の権限を利用します。
+
+- マイク: 面接音声の録音
+- カメラ: QRコード読み取り
+- カレンダー: 面接予定の登録
+- 通知: 面接日のリマインダー
+
+通知権限はアプリ起動時ではなく、必要なタイミングで要求します。
+
+## 背景録音
+
+- iOS: `UIBackgroundModes: ["audio"]` を利用
+- Android: `react-native-background-actions` によりフォアグラウンドサービスとして録音継続
+
+## カレンダー連携
+
+面接日を端末の既定カレンダーへ終日イベントとして登録します。  
+Google 専用連携ではなく、`expo-calendar` が取得できる書き込み可能カレンダーを利用します。
+
+## 通知仕様
+
+- 面接予定日が設定されている企業に対して、当日 07:00 に通知
+- 過去日付は通知を作成しない
+- 面接日を変更・削除した場合は通知も更新
+
+## 文字起こし
+
+- 録音ファイルは端末内で処理
+- Whisper モデルは初回利用時にダウンロード
+- 文字起こし結果は編集可能
+- 保存は明示操作で行う
+
+## ステータス仕様
+
+企業のステータスは以下の 2 系統で管理します。
+
+- システムステータス: 選考イベントに応じて再計算される標準ステータス
+- カスタムステータス: ユーザー追加の任意ステータス
+
+選考イベントの追加・更新・削除時、企業がシステムステータスを使っている場合は履歴全体から再計算します。
+
+## 主なディレクトリ
+
+```text
+app/
+  index.tsx            一覧画面
+  add.tsx              企業追加画面
+  [id].tsx             企業詳細画面
+  _layout.tsx          画面レイアウト
+
+components/
+  CompanyForm.tsx
+  CompanyCard.tsx
+  SelectionTimeline.tsx
+  AddEventModal.tsx
+  QRScannerModal.tsx
+  TranscriptionView.tsx
+  StatusBadge.tsx
+
+database/
+  schema.ts            SQLite 初期化
+  repository.ts        CRUD と業務ロジック
+
+utils/
+  date.ts
+  notifications.ts
+  calendar.ts
+  audioRecorder.ts
+  whisperLocal.ts
+
+constants/
+  status.ts
+
+types/
+  company.ts
+```
 
 ## データモデル
 
-### Company（企業）
+### Company
 
 | フィールド | 型 | 説明 |
-|-----------|-----|------|
+|---|---|---|
 | id | string | UUID |
-| companyName | string | 会社名 |
-| loginId | string? | マイページログインID |
-| myPageUrl | string? | マイページURL（QRスキャンで入力可） |
-| entryDate | string? | エントリー日（YYYY-MM-DD） |
-| nextInterviewDate | string? | 次回面接日（YYYY-MM-DD） |
-| position | string? | 応募職種 |
-| esContent | string? | ES内容 |
-| motivation | string? | 志望動機 |
-| notes | string? | メモ |
-| transcription | string? | AI文字起こしされた面接内容 |
-| calendarEventId | string? | Googleカレンダーイベント連携ID |
-| status | string | 選考ステータス |
+| companyName | string | 企業名 |
+| loginId | string \| null | ログインID |
+| myPageUrl | string \| null | マイページURL |
+| entryDate | string \| null | エントリー日 (`YYYY-MM-DD`) |
+| nextInterviewDate | string \| null | 次回面接日 (`YYYY-MM-DD`) |
+| position | string \| null | 職種 |
+| esContent | string \| null | ES内容 |
+| motivation | string \| null | 志望動機 |
+| notes | string \| null | メモ |
+| transcription | string \| null | 文字起こし結果 |
+| status | string | 現在のステータス |
 | sortOrder | number | 手動並び順 |
+| calendarEventId | string \| null | カレンダーイベントID |
 
-### SelectionEvent（選考イベント）
+### SelectionEvent
 
 | フィールド | 型 | 説明 |
-|-----------|-----|------|
+|---|---|---|
 | id | string | UUID |
-| companyId | string | 紐づく企業ID |
-| eventType | string | イベント種別（ES・面接・GD等） |
-| eventDate | string? | 実施日 |
-| result | string? | 結果（通過・不通過等） |
-| notes | string? | メモ |
+| companyId | string | 企業ID |
+| eventType | string | イベント種別 |
+| eventDate | string \| null | 実施日 (`YYYY-MM-DD`) |
+| result | string | `結果待ち` / `合格` / `不合格` |
+| notes | string \| null | メモ |
+
+## セキュリティ上の注意
+
+- SQLite には応募情報や面接メモを平文保存しています
+- Whisper モデルは実行時ダウンロードです
+- 機微情報を扱う用途では、端末保護や追加の暗号化を検討してください
+
+## バージョン運用
+
+- `package.json` の `version`
+- `app.json` の `version`
+- `app.json` の `android.versionCode`
+- 必要に応じて `android/app/build.gradle` の `versionName` / `versionCode`
+- `CHANGELOG.md`
+
+を同時に更新します。
 
 ## ライセンス
 
