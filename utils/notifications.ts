@@ -100,3 +100,45 @@ export async function cancelNotificationForCompany(companyId: string): Promise<v
 export async function cancelAllNotifications(): Promise<void> {
     await Notifications.cancelAllScheduledNotificationsAsync();
 }
+
+// 録音中の通知ID（バックグラウンド録音中に表示する常駐通知）
+let recordingNotificationId: string | null = null;
+
+// 録音開始時に常駐通知を表示（Androidのバックグラウンド処理継続を支援）
+export async function showRecordingNotification(): Promise<void> {
+    try {
+        if (Platform.OS === 'android') {
+            await Notifications.setNotificationChannelAsync('recording', {
+                name: '録音中',
+                importance: Notifications.AndroidImportance.LOW,
+                vibrationPattern: [],
+                enableVibrate: false,
+                lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+            });
+        }
+        recordingNotificationId = await Notifications.scheduleNotificationAsync({
+            identifier: 'recording-active',
+            content: {
+                title: '🎙️ 録音中',
+                body: '就活管理アプリが面接を録音しています。停止するにはアプリを開いてください。',
+                sticky: true,
+                ...(Platform.OS === 'android' && { channelId: 'recording' }),
+            },
+            trigger: null,
+        });
+    } catch (e) {
+        console.error('Failed to show recording notification:', e);
+    }
+}
+
+// 録音停止時に常駐通知を消す
+export async function dismissRecordingNotification(): Promise<void> {
+    try {
+        if (recordingNotificationId) {
+            await Notifications.dismissNotificationAsync(recordingNotificationId);
+            recordingNotificationId = null;
+        }
+    } catch (e) {
+        // 通知がすでに消えていた場合は無視
+    }
+}

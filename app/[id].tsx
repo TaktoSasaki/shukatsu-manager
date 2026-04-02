@@ -57,7 +57,10 @@ export default function CompanyDetailScreen() {
     };
 
     const loadData = useCallback(async () => {
-        if (!id) return;
+        if (!id) {
+            setLoading(false);
+            return;
+        }
         try {
             const [companyData, eventsData] = await Promise.all([
                 getCompanyById(id),
@@ -290,7 +293,7 @@ export default function CompanyDetailScreen() {
 
                 {/* 面接録音・文字起こし */}
                 <TranscriptionView
-                    companyId={id || ''}
+                    companyId={id}
                     existingTranscription={company.transcription}
                     onTranscriptionComplete={async (text) => {
                         if (!id) return;
@@ -374,7 +377,7 @@ export default function CompanyDetailScreen() {
             {/* 選考イベント追加/編集モーダル */}
             <AddEventModal
                 visible={showEventModal}
-                companyId={id || ''}
+                companyId={id}
                 initialEvent={editingEvent}
                 onSubmit={editingEvent ? handleUpdateEvent : handleAddEvent}
                 onDelete={editingEvent ? handleDeleteEvent : undefined}

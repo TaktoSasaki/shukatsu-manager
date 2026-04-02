@@ -43,10 +43,13 @@ export function extractTimeFromDateTime(date: string | null): string | null {
 // 残り日数を計算
 export function getDaysRemaining(date: string | null): number | null {
     if (!date) return null;
-    const target = new Date(date);
+    // new Date('YYYY-MM-DD') はUTC解釈で日本時間だと1日ズレるため、手動パースしてローカル時刻として生成
+    const parts = date.split('-').map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return null;
+    const [year, month, day] = parts;
+    const target = new Date(year, month - 1, day);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    target.setHours(0, 0, 0, 0);
     const diff = target.getTime() - today.getTime();
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }

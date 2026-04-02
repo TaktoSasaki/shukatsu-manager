@@ -4,6 +4,9 @@ import { Audio } from 'expo-av';
 import { Platform } from 'react-native';
 // @ts-ignore
 import AudioRecord from 'react-native-audio-record';
+// @ts-ignore
+import BackgroundService from 'react-native-background-actions';
+import { showRecordingNotification, dismissRecordingNotification } from './notifications';
 
 export type RecordingStatus = 'idle' | 'recording' | 'paused' | 'stopped';
 
@@ -22,6 +25,17 @@ const initialState: RecorderState = {
 let state: RecorderState = { ...initialState };
 let isInitialized = false;
 
+// Android フォアグラウンドサービスのタスクを終了させるリゾルバ
+let backgroundTaskResolver: (() => void) | null = null;
+
+// フォアグラウンドサービスとして動作し続ける空タスク（Android 専用）
+// resolve が呼ばれるまでサービスを維持する
+const backgroundRecordingTask = async (_taskData: unknown) => {
+    await new Promise<void>((resolve) => {
+        backgroundTaskResolver = resolve;
+    });
+};
+
 // マイク権限をリクエスト
 export async function requestAudioPermission(): Promise<boolean> {
     const permission = await Audio.requestPermissionsAsync();
@@ -37,7 +51,29 @@ export async function startRecording(): Promise<void> {
     }
 
     try {
-        // init
+        if (Platform.OS === 'android') {
+            // Android: react-native-background-actions でフォアグラウンドサービスを起動。
+            // これにより画面オフ・他アプリ切り替え時でも OS にプロセスを強制終了されない。
+            await BackgroundService.start(backgroundRecordingTask, {
+                taskName: '面接録音',
+                taskTitle: '🎙️ 録音中',
+                taskDesc: '就活管理アプリが面接を録音しています。停止するにはアプリを開いてください。',
+                taskIcon: { name: 'ic_launcher', type: 'mipmap' },
+                color: '#4F46E5',
+                linkingURI: 'shukatsu://',
+            });
+        } else {
+            // iOS: UIBackgroundModes: ["audio"] + staysActiveInBackground で対応。
+            // 録音中のみバックグラウンド・画面オフで動作し、停止時に解除する。
+            await Audio.setAudioModeAsync({
+                allowsRecordingIOS: true,
+                playsInSilentModeIOS: true,
+                staysActiveInBackground: true,
+            });
+            await showRecordingNotification();
+        }
+
+        // ネイティブ録音の初期化と開始
         if (!isInitialized) {
             AudioRecord.init({
                 sampleRate: 16000,
@@ -57,6 +93,12 @@ export async function startRecording(): Promise<void> {
         };
     } catch (e) {
         console.error('Failed to start recording:', e);
+        // 起動に失敗した場合はフォアグラウンドサービスをクリーンアップ
+        if (Platform.OS === 'android' && BackgroundService.isRunning()) {
+            backgroundTaskResolver?.();
+            backgroundTaskResolver = null;
+            await BackgroundService.stop();
+        }
         throw new Error('録音の初期化に失敗しました');
     }
 }
@@ -87,6 +129,21 @@ export async function stopRecording(): Promise<string | null> {
         console.error('Failed to stop recording:', error);
         state = { ...initialState };
         return null;
+    } finally {
+        // 録音停止後は必ずバックグラウンドサービス・オーディオセッションを解除
+        if (Platform.OS === 'android') {
+            if (BackgroundService.isRunning()) {
+                backgroundTaskResolver?.();
+                backgroundTaskResolver = null;
+                await BackgroundService.stop();
+            }
+        } else {
+            await dismissRecordingNotification();
+            await Audio.setAudioModeAsync({
+                allowsRecordingIOS: false,
+                staysActiveInBackground: false,
+            });
+        }
     }
 }
 

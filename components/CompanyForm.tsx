@@ -15,6 +15,7 @@ import { Company, CompanyInput } from '../types/company';
 import { DEFAULT_STATUS_LIST } from '../constants/status';
 import { getAllCustomStatuses, addCustomStatus, CustomStatus } from '../database/repository';
 import { StatusBadge } from './StatusBadge';
+import { QRScannerModal } from './QRScannerModal';
 import { formatDisplayDate } from '../utils/date';
 
 interface CompanyFormProps {
@@ -36,6 +37,7 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
     const [status, setStatus] = useState(initialData?.status || '未エントリー');
 
     const [showStatusPicker, setShowStatusPicker] = useState(false);
+    const [showQRScanner, setShowQRScanner] = useState(false);
     const [customStatuses, setCustomStatuses] = useState<CustomStatus[]>([]);
     const [newStatusName, setNewStatusName] = useState('');
     const [showAddStatus, setShowAddStatus] = useState(false);
@@ -180,16 +182,33 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
 
             <View style={styles.field}>
                 <Text style={styles.label}>マイページURL</Text>
-                <TextInput
-                    style={styles.input}
-                    value={myPageUrl}
-                    onChangeText={setMyPageUrl}
-                    placeholder="https://..."
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="url"
-                    autoCapitalize="none"
-                />
+                <View style={styles.urlRow}>
+                    <TextInput
+                        style={[styles.input, styles.urlInput]}
+                        value={myPageUrl}
+                        onChangeText={setMyPageUrl}
+                        placeholder="https://..."
+                        placeholderTextColor="#9CA3AF"
+                        keyboardType="url"
+                        autoCapitalize="none"
+                    />
+                    <TouchableOpacity
+                        style={styles.qrButton}
+                        onPress={() => setShowQRScanner(true)}
+                    >
+                        <Text style={styles.qrButtonText}>QR</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
+
+            <QRScannerModal
+                visible={showQRScanner}
+                onScan={(data) => {
+                    setMyPageUrl(data);
+                    setShowQRScanner(false);
+                }}
+                onClose={() => setShowQRScanner(false)}
+            />
 
             <View style={styles.row}>
                 <View style={[styles.field, styles.halfField]}>
@@ -464,6 +483,27 @@ const styles = StyleSheet.create({
     multiline: {
         minHeight: 100,
         paddingTop: 14,
+    },
+    urlRow: {
+        flexDirection: 'row',
+        gap: 8,
+        alignItems: 'center',
+    },
+    urlInput: {
+        flex: 1,
+    },
+    qrButton: {
+        backgroundColor: '#4F46E5',
+        paddingHorizontal: 14,
+        paddingVertical: 14,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    qrButtonText: {
+        color: '#FFFFFF',
+        fontWeight: '700',
+        fontSize: 13,
     },
     statusButton: {
         flexDirection: 'row',

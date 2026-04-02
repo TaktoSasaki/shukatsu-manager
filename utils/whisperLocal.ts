@@ -11,6 +11,7 @@ const MODEL_MIN_SIZE = 450_000_000;
 
 let whisperContext: WhisperContext | null = null;
 let initializingPromise: Promise<void> | null = null;
+let pendingProgressCallbacks: Array<(progress: number) => void> = [];
 
 /**
  * モデルがローカルにあるか確認し、無ければダウンロードする
@@ -80,15 +81,21 @@ export async function initWhisper(onProgress?: (progress: number) => void): Prom
     if (whisperContext) {
         return; // 既に初期化済み
     }
+    // 後から来た呼び出しのコールバックも登録しておく
+    if (onProgress) pendingProgressCallbacks.push(onProgress);
     // 初期化中の場合は同じPromiseを返して競合状態を防ぐ
     if (initializingPromise) {
         return initializingPromise;
     }
 
+    const combinedProgress = (progress: number) => {
+        pendingProgressCallbacks.forEach(cb => cb(progress));
+    };
+
     initializingPromise = (async () => {
         try {
             // 1. モデルの準備
-            const modelPath = await downloadModel(onProgress);
+            const modelPath = await downloadModel(combinedProgress);
 
             // 2. Whisperコンテキスト作成
             // file:// プレフィックスを除去（whisper.rn はローカルパスを期待する）
@@ -102,6 +109,7 @@ export async function initWhisper(onProgress?: (progress: number) => void): Prom
             });
         } finally {
             initializingPromise = null;
+            pendingProgressCallbacks = [];
         }
     })();
 
