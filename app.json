@@ -17,7 +17,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.shukatsumanager",
       "infoPlist": {
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {
@@ -35,7 +37,15 @@
         "WRITE_CALENDAR",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_MICROPHONE",
-        "CAMERA"
+        "CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.INTERNET",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR",
+        "android.permission.CAMERA"
       ]
     },
     "web": {
@@ -67,6 +77,13 @@
           "cameraPermission": "QRコードを読み取ってマイページURLを登録するためにカメラへのアクセスが必要です。"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a09267af-c1b3-4bc2-8740-d0fcda95ecc6"
+      }
+    },
+    "owner": "salmiakki"
   }
 }
