@@ -1,6 +1,6 @@
 # 就活管理 (Shukatsu Manager)
 
-**Version 1.0.2** | [更新履歴](./CHANGELOG.md)
+**Version 1.0.3** | [更新履歴](./CHANGELOG.md)
 
 就職活動の応募先、選考履歴、面接メモを 1 つのアプリで管理するための Expo / React Native アプリです。
 
@@ -91,6 +91,7 @@ android/app/build/outputs/apk/release/app-release.apk
 
 - iOS: `UIBackgroundModes: ["audio"]` を利用
 - Android: `react-native-background-actions` によりフォアグラウンドサービスとして録音継続
+- Android 14+ 対応: カスタム Expo Config Plugin (`plugins/withBackgroundActions.js`) で `foregroundServiceType="microphone"` を注入
 
 ## カレンダー連携
 
@@ -198,10 +199,9 @@ types/
 - `package.json` の `version`
 - `app.json` の `version`
 - `app.json` の `android.versionCode`
-- 必要に応じて `android/app/build.gradle` の `versionName` / `versionCode`
 - `CHANGELOG.md`
 
-を同時に更新します。
+を同時に更新します。ネイティブの `build.gradle` は EAS Build の prebuild で `app.json` から自動生成されます。
 
 ## ライセンス
 
