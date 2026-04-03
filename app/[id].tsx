@@ -208,7 +208,7 @@ export default function CompanyDetailScreen() {
                 <Stack.Screen options={{ title: '企業を編集' }} />
                 <CompanyForm
                     initialData={company}
-                    onSubmit={(data) => void handleUpdate(data)}
+                    onSubmit={handleUpdate}
                     onCancel={() => setEditing(false)}
                 />
             </>

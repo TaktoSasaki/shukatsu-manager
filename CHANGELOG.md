@@ -2,6 +2,25 @@
 
 バージョン履歴と変更内容の記録。
 
+## [1.0.3] - 2026-04-04
+
+### 修正
+- Android 14+ でバックグラウンド録音開始時にクラッシュする問題を修正
+  - フォアグラウンドサービスに `foregroundServiceType="microphone"` を設定する Expo Config Plugin を追加
+- 録音開始/停止ボタンの連打で非同期処理が多重実行される問題を修正
+  - `audioRecorder.ts`: 録音中の `startRecording()` 再呼び出しを早期リターンで防止
+  - `TranscriptionView.tsx`: busy ref ガードで録音開始・停止の並行実行を防止
+- 企業登録/編集フォームの二重送信を防止
+  - `CompanyForm.tsx`: `onSubmit` を async 対応にし、送信中はボタンを無効化
+- 音声再生エラー時にサウンドリソースが解放されず、以降再生不能になる問題を修正
+- `AudioRecord.init()` を毎回の録音開始時に実行するよう変更（停止後の再録音での状態不整合を防止）
+
+### バージョン情報
+- `version`: 1.0.3
+- `versionCode`: 4
+
+---
+
 ## [1.0.2] - 2026-04-02
 
 ### 修正

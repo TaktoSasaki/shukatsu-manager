@@ -19,7 +19,6 @@ const initialState: RecorderState = {
 };
 
 let state: RecorderState = { ...initialState };
-let isInitialized = false;
 let backgroundTaskResolver: (() => void) | null = null;
 
 const backgroundRecordingTask = async (_taskData: unknown) => {
@@ -34,6 +33,10 @@ export async function requestAudioPermission(): Promise<boolean> {
 }
 
 export async function startRecording(): Promise<void> {
+    if (state.status === 'recording') {
+        return;
+    }
+
     const hasPermission = await requestAudioPermission();
     if (!hasPermission) {
         throw new Error('マイクの使用が許可されていません');
@@ -58,16 +61,13 @@ export async function startRecording(): Promise<void> {
             await showRecordingNotification();
         }
 
-        if (!isInitialized) {
-            AudioRecord.init({
-                sampleRate: 16000,
-                channels: 1,
-                bitsPerSample: 16,
-                audioSource: 6,
-                wavFile: 'shukatsu_interview.wav',
-            });
-            isInitialized = true;
-        }
+        AudioRecord.init({
+            sampleRate: 16000,
+            channels: 1,
+            bitsPerSample: 16,
+            audioSource: 6,
+            wavFile: 'shukatsu_interview.wav',
+        });
 
         AudioRecord.start();
         state = {

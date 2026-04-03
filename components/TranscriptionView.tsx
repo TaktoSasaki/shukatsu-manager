@@ -34,6 +34,7 @@ export function TranscriptionView({
     const [isSaving, setIsSaving] = useState(false);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const soundRef = useRef<Audio.Sound | null>(null);
+    const busyRef = useRef(false);
 
     useEffect(() => {
         setDisplayText(existingTranscription ?? '');
@@ -47,6 +48,8 @@ export function TranscriptionView({
     }, [isDirty, isSaving]);
 
     async function handleStartRecording(): Promise<void> {
+        if (busyRef.current) return;
+        busyRef.current = true;
         try {
             await startRecording();
             setViewState('recording');
@@ -58,6 +61,8 @@ export function TranscriptionView({
         } catch (error) {
             const message = error instanceof Error ? error.message : '録音の開始に失敗しました';
             Alert.alert('エラー', message);
+        } finally {
+            busyRef.current = false;
         }
     }
 
@@ -75,6 +80,9 @@ export function TranscriptionView({
     }
 
     async function handleStopRecording(): Promise<void> {
+        if (busyRef.current) return;
+        busyRef.current = true;
+
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
@@ -112,6 +120,8 @@ export function TranscriptionView({
             const message = error instanceof Error ? error.message : '文字起こしに失敗しました';
             Alert.alert('文字起こしエラー', message);
             setViewState('idle');
+        } finally {
+            busyRef.current = false;
         }
     }
 
@@ -120,7 +130,8 @@ export function TranscriptionView({
 
         try {
             if (soundRef.current) {
-                await soundRef.current.unloadAsync();
+                await soundRef.current.unloadAsync().catch(() => {});
+                soundRef.current = null;
             }
 
             const { sound } = await Audio.Sound.createAsync(

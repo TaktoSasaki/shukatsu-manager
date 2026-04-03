@@ -20,7 +20,7 @@ import { StatusBadge } from './StatusBadge';
 
 interface CompanyFormProps {
     initialData?: Company;
-    onSubmit: (data: CompanyInput) => void;
+    onSubmit: (data: CompanyInput) => Promise<void> | void;
     onCancel: () => void;
 }
 
@@ -52,6 +52,7 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
     const [showAddStatus, setShowAddStatus] = useState(false);
     const [showEntryDatePicker, setShowEntryDatePicker] = useState(false);
     const [showInterviewDatePicker, setShowInterviewDatePicker] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         void loadCustomStatuses();
@@ -91,7 +92,9 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
         }
     }
 
-    function handleSubmit(): void {
+    async function handleSubmit(): Promise<void> {
+        if (isSubmitting) return;
+
         const trimmedCompanyName = companyName.trim();
         if (!trimmedCompanyName) {
             Alert.alert('エラー', '企業名を入力してください');
@@ -104,19 +107,24 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
             return;
         }
 
-        onSubmit({
-            companyName: trimmedCompanyName,
-            loginId: normalizeNullable(loginId),
-            myPageUrl: normalizedUrl,
-            entryDate: entryDate || null,
-            nextInterviewDate: nextInterviewDate || null,
-            position: normalizeNullable(position),
-            esContent: normalizeNullable(esContent),
-            motivation: normalizeNullable(motivation),
-            notes: normalizeNullable(notes),
-            transcription: initialData?.transcription ?? null,
-            status,
-        });
+        setIsSubmitting(true);
+        try {
+            await onSubmit({
+                companyName: trimmedCompanyName,
+                loginId: normalizeNullable(loginId),
+                myPageUrl: normalizedUrl,
+                entryDate: entryDate || null,
+                nextInterviewDate: nextInterviewDate || null,
+                position: normalizeNullable(position),
+                esContent: normalizeNullable(esContent),
+                motivation: normalizeNullable(motivation),
+                notes: normalizeNullable(notes),
+                transcription: initialData?.transcription ?? null,
+                status,
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
     }
 
     function handleEntryDateChange(event: DateTimePickerEvent, selectedDate?: Date): void {
@@ -342,8 +350,12 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
                 <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
                     <Text style={styles.cancelButtonText}>キャンセル</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-                    <Text style={styles.submitButtonText}>{initialData ? '更新する' : '登録する'}</Text>
+                <TouchableOpacity
+                    style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+                    onPress={() => void handleSubmit()}
+                    disabled={isSubmitting}
+                >
+                    <Text style={styles.submitButtonText}>{isSubmitting ? '処理中...' : initialData ? '更新する' : '登録する'}</Text>
                 </TouchableOpacity>
             </View>
 
@@ -530,6 +542,9 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 16,
         fontWeight: '600',
+    },
+    submitButtonDisabled: {
+        opacity: 0.6,
     },
     modalOverlay: {
         flex: 1,
