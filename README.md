@@ -1,6 +1,6 @@
 # 就活管理 (Shukatsu Manager)
 
-**Version 1.0.3** | [更新履歴](./CHANGELOG.md)
+**Version 1.1.0** | [更新履歴](./CHANGELOG.md)
 
 就職活動の応募先、選考履歴、面接メモを 1 つのアプリで管理するための Expo / React Native アプリです。
 
@@ -8,7 +8,7 @@
 
 - 企業情報の登録・編集・削除
 - ログインID、マイページURL、ES、志望動機、メモの保存
-- QRコードからのマイページURL入力
+- QRコードスキャン（説明会アンケート等の読み取り、スキャン履歴付き）
 - 選考イベントの追加・編集・削除
 - 選考イベントに応じた企業ステータスの自動再計算
 - 面接予定日の通知
@@ -22,7 +22,7 @@
 | 項目 | 採用技術 |
 |---|---|
 | アプリ基盤 | Expo 54, React Native 0.81, React 19 |
-| 画面遷移 | expo-router |
+| 画面遷移 | expo-router (Tabs + Stack) |
 | DB | expo-sqlite |
 | 通知 | expo-notifications |
 | カレンダー | expo-calendar |
@@ -81,7 +81,7 @@ android/app/build/outputs/apk/release/app-release.apk
 このアプリでは以下の権限を利用します。
 
 - マイク: 面接音声の録音
-- カメラ: QRコード読み取り
+- カメラ: QRコードスキャン（説明会アンケート等）
 - カレンダー: 面接予定の登録
 - 通知: 面接日のリマインダー
 
@@ -124,17 +124,19 @@ Google 専用連携ではなく、`expo-calendar` が取得できる書き込み
 
 ```text
 app/
-  index.tsx            一覧画面
-  add.tsx              企業追加画面
+  _layout.tsx          ルートレイアウト (Stack)
+  (tabs)/
+    _layout.tsx        タブレイアウト (Tabs)
+    index.tsx          企業一覧タブ
+    qr-scan.tsx        QRスキャンタブ
+  add.tsx              企業追加画面 (Modal)
   [id].tsx             企業詳細画面
-  _layout.tsx          画面レイアウト
 
 components/
   CompanyForm.tsx
   CompanyCard.tsx
   SelectionTimeline.tsx
   AddEventModal.tsx
-  QRScannerModal.tsx
   TranscriptionView.tsx
   StatusBadge.tsx
 

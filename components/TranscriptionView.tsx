@@ -260,8 +260,12 @@ export function TranscriptionView({
                         <TouchableOpacity
                             style={styles.copyButton}
                             onPress={async () => {
-                                await Clipboard.setStringAsync(displayText);
-                                Alert.alert('コピーしました', '全文をクリップボードにコピーしました');
+                                try {
+                                    await Clipboard.setStringAsync(displayText);
+                                    Alert.alert('コピーしました', '全文をクリップボードにコピーしました');
+                                } catch {
+                                    Alert.alert('エラー', 'コピーに失敗しました');
+                                }
                             }}
                         >
                             <Text style={styles.copyButtonText}>全文をコピー</Text>

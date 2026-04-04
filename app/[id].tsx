@@ -270,8 +270,12 @@ export default function CompanyDetailScreen() {
                                         <TouchableOpacity
                                             style={styles.copyButton}
                                             onPress={async () => {
-                                                await Clipboard.setStringAsync(company.loginId ?? '');
-                                                Alert.alert('コピーしました', 'ログインIDをクリップボードにコピーしました');
+                                                try {
+                                                    await Clipboard.setStringAsync(company.loginId ?? '');
+                                                    Alert.alert('コピーしました', 'ログインIDをクリップボードにコピーしました');
+                                                } catch {
+                                                    Alert.alert('エラー', 'コピーに失敗しました');
+                                                }
                                             }}
                                         >
                                             <Text style={styles.copyButtonText}>コピー</Text>

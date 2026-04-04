@@ -12,9 +12,9 @@ import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import DraggableFlatList, { type RenderItemParams } from 'react-native-draggable-flatlist';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CompanyCard } from '../components/CompanyCard';
-import { getAllCompanies, reorderCompanies, type SortType } from '../database/repository';
-import type { Company } from '../types/company';
+import { CompanyCard } from '../../components/CompanyCard';
+import { getAllCompanies, reorderCompanies, type SortType } from '../../database/repository';
+import type { Company } from '../../types/company';
 
 const SORT_OPTIONS: Array<{ type: SortType; label: string }> = [
     { type: 'manual', label: '手動順' },

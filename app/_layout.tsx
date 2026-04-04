@@ -25,9 +25,9 @@ export default function RootLayout() {
                         }}
                     >
                         <Stack.Screen
-                            name="index"
+                            name="(tabs)"
                             options={{
-                                title: '就活管理',
+                                headerShown: false,
                             }}
                         />
                         <Stack.Screen

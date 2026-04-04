@@ -2,7 +2,7 @@
   "expo": {
     "name": "就活管理",
     "slug": "shukatsu-manager",
-    "version": "1.0.3",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -23,7 +23,7 @@
       }
     },
     "android": {
-      "versionCode": 4,
+      "versionCode": 5,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#4F46E5"
@@ -74,7 +74,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "QRコードを読み取ってマイページURLを登録するためにカメラへのアクセスが必要です。"
+          "cameraPermission": "説明会アンケートなどのQRコードを読み取るためにカメラへのアクセスが必要です。"
         }
       ]
     ],
