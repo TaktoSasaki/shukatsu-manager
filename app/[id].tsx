@@ -297,26 +297,6 @@ export default function CompanyDetailScreen() {
                     </View>
                 </View>
 
-                <SelectionTimeline
-                    events={events}
-                    onEventPress={(event) => {
-                        setEditingEvent(event);
-                        setShowEventModal(true);
-                    }}
-                    onAddPress={() => setShowEventModal(true)}
-                />
-
-                <TranscriptionView
-                    existingTranscription={company.transcription}
-                    onTranscriptionComplete={async (text) => {
-                        if (!id) return;
-                        const updated = await updateCompany(id, { transcription: text || null });
-                        if (updated) {
-                            setCompany(updated);
-                        }
-                    }}
-                />
-
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>基本情報</Text>
                     <DetailRow label="職種" value={company.position} />
@@ -344,6 +324,26 @@ export default function CompanyDetailScreen() {
                         </View>
                     </View>
                 </View>
+
+                <SelectionTimeline
+                    events={events}
+                    onEventPress={(event) => {
+                        setEditingEvent(event);
+                        setShowEventModal(true);
+                    }}
+                    onAddPress={() => setShowEventModal(true)}
+                />
+
+                <TranscriptionView
+                    existingTranscription={company.transcription}
+                    onTranscriptionComplete={async (text) => {
+                        if (!id) return;
+                        const updated = await updateCompany(id, { transcription: text || null });
+                        if (updated) {
+                            setCompany(updated);
+                        }
+                    }}
+                />
 
                 {company.esContent ? (
                     <View style={styles.section}>

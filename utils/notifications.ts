@@ -51,23 +51,50 @@ export async function scheduleInterviewNotification(
         const parsedDate = parseDateOnly(interviewDate);
         if (!parsedDate) return null;
 
-        const notificationTime = new Date(parsedDate);
-        notificationTime.setHours(7, 0, 0, 0);
-        if (notificationTime <= new Date()) return null;
+        const now = new Date();
 
-        return await Notifications.scheduleNotificationAsync({
-            identifier: `interview-${companyId}`,
-            content: {
-                title: '本日が面接日です',
-                body: `${companyName} の予定を確認してください。`,
-                data: { companyId },
-                ...(Platform.OS === 'android' && { channelId: 'interview-reminder' }),
-            },
-            trigger: {
-                type: Notifications.SchedulableTriggerInputTypes.DATE,
-                date: notificationTime,
-            },
-        });
+        const eveTime = new Date(parsedDate);
+        eveTime.setDate(eveTime.getDate() - 1);
+        eveTime.setHours(21, 0, 0, 0);
+
+        const morningTime = new Date(parsedDate);
+        morningTime.setHours(7, 0, 0, 0);
+
+        let scheduled: string | null = null;
+
+        if (eveTime > now) {
+            scheduled = await Notifications.scheduleNotificationAsync({
+                identifier: `interview-eve-${companyId}`,
+                content: {
+                    title: '明日は面接日です',
+                    body: `${companyName} の予定を確認して準備しましょう。`,
+                    data: { companyId },
+                    ...(Platform.OS === 'android' && { channelId: 'interview-reminder' }),
+                },
+                trigger: {
+                    type: Notifications.SchedulableTriggerInputTypes.DATE,
+                    date: eveTime,
+                },
+            });
+        }
+
+        if (morningTime > now) {
+            scheduled = await Notifications.scheduleNotificationAsync({
+                identifier: `interview-morning-${companyId}`,
+                content: {
+                    title: '本日が面接日です',
+                    body: `${companyName} の予定を確認してください。`,
+                    data: { companyId },
+                    ...(Platform.OS === 'android' && { channelId: 'interview-reminder' }),
+                },
+                trigger: {
+                    type: Notifications.SchedulableTriggerInputTypes.DATE,
+                    date: morningTime,
+                },
+            });
+        }
+
+        return scheduled;
     } catch (error) {
         console.error('Failed to schedule notification:', error);
         return null;
@@ -75,10 +102,17 @@ export async function scheduleInterviewNotification(
 }
 
 export async function cancelNotificationForCompany(companyId: string): Promise<void> {
-    try {
-        await Notifications.cancelScheduledNotificationAsync(`interview-${companyId}`);
-    } catch {
-        // Ignore missing notifications.
+    const ids = [
+        `interview-eve-${companyId}`,
+        `interview-morning-${companyId}`,
+        `interview-${companyId}`,
+    ];
+    for (const id of ids) {
+        try {
+            await Notifications.cancelScheduledNotificationAsync(id);
+        } catch {
+            // Ignore missing notifications.
+        }
     }
 }
 

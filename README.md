@@ -1,6 +1,6 @@
 # 就活管理 (Shukatsu Manager)
 
-**Version 1.1.0** | [更新履歴](./CHANGELOG.md)
+**Version 1.1.1** | [更新履歴](./CHANGELOG.md)
 
 就職活動の応募先、選考履歴、面接メモを 1 つのアプリで管理するための Expo / React Native アプリです。
 
