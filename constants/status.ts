@@ -16,14 +16,14 @@ export const EVENT_TYPES = [
 
 export const EVENT_RESULTS = [
     '結果待ち',
-    '合格',
-    '不合格',
+    '通過',
+    '不通過',
 ] as const;
 
 export const RESULT_COLORS: Record<string, string> = {
     結果待ち: '#F59E0B',
-    合格: '#10B981',
-    不合格: '#EF4444',
+    通過: '#10B981',
+    不通過: '#EF4444',
 };
 
 export const DEFAULT_STATUS_LIST = [
@@ -89,7 +89,7 @@ export function isSystemStatus(value: string): value is SystemStatus {
 }
 
 export function getNextStatusAfterEvent(eventType: EventType, result: EventResult): SystemStatus | null {
-    if (result !== '合格') return null;
+    if (result !== '通過') return null;
 
     const statusMap: Record<EventType, SystemStatus | null> = {
         ES提出: 'ES通過',

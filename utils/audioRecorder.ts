@@ -58,7 +58,7 @@ export async function startRecording(): Promise<void> {
                 playsInSilentModeIOS: true,
                 staysActiveInBackground: true,
             });
-            await showRecordingNotification();
+            await showRecordingNotification().catch(() => {});
         }
 
         AudioRecord.init({

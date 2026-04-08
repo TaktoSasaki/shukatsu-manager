@@ -32,12 +32,12 @@ function deriveStatusFromEvents(events: SelectionEvent[]): string | null {
     let derivedStatus: string | null = null;
 
     for (const event of sortEventsForStatus(events)) {
-        if (event.result === '合格') {
+        if (event.result === '通過') {
             derivedStatus = getNextStatusAfterEvent(event.eventType, event.result) ?? derivedStatus;
             continue;
         }
 
-        if (event.result === '不合格') {
+        if (event.result === '不通過') {
             derivedStatus = REJECTED_STATUS;
         }
     }

@@ -79,6 +79,10 @@ async function initializeDatabase(database: SQLite.SQLiteDatabase): Promise<void
       FOREIGN KEY (companyId) REFERENCES companies(id) ON DELETE CASCADE
     );
   `);
+
+  // Migrate event results: 合格→通過, 不合格→不通過
+  await database.execAsync("UPDATE selection_events SET result = '通過' WHERE result = '合格';");
+  await database.execAsync("UPDATE selection_events SET result = '不通過' WHERE result = '不合格';");
 }
 
 export async function resetDatabase(): Promise<void> {

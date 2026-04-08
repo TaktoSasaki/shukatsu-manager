@@ -9,6 +9,7 @@ import {
     View,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import * as Sharing from 'expo-sharing';
 import { Audio } from 'expo-av';
 import { formatDuration, startRecording, stopRecording } from '../utils/audioRecorder';
 import { initWhisper, transcribeLocalAudio } from '../utils/whisperLocal';
@@ -181,7 +182,8 @@ export function TranscriptionView({
                 clearInterval(intervalRef.current);
             }
             if (soundRef.current) {
-                void soundRef.current.unloadAsync();
+                void soundRef.current.unloadAsync().catch(() => {});
+                soundRef.current = null;
             }
         };
     }, []);
@@ -274,15 +276,32 @@ export function TranscriptionView({
 
                     <View style={styles.actionButtonsRow}>
                         {savedAudioUri ? (
-                            <TouchableOpacity
-                                style={[styles.secondaryButton, styles.playButton]}
-                                onPress={() => void playAudio()}
-                                disabled={isPlaying}
-                            >
-                                <Text style={[styles.secondaryButtonText, isPlaying && styles.secondaryButtonTextDisabled]}>
-                                    {isPlaying ? '再生中...' : '録音を再生'}
-                                </Text>
-                            </TouchableOpacity>
+                            <>
+                                <TouchableOpacity
+                                    style={[styles.secondaryButton, styles.playButton]}
+                                    onPress={() => void playAudio()}
+                                    disabled={isPlaying}
+                                >
+                                    <Text style={[styles.secondaryButtonText, isPlaying && styles.secondaryButtonTextDisabled]}>
+                                        {isPlaying ? '再生中...' : '録音を再生'}
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.secondaryButton, styles.shareButton]}
+                                    onPress={async () => {
+                                        try {
+                                            await Sharing.shareAsync(savedAudioUri, {
+                                                mimeType: 'audio/wav',
+                                                dialogTitle: '音声ファイルを共有',
+                                            });
+                                        } catch {
+                                            Alert.alert('エラー', 'ファイルの共有に失敗しました');
+                                        }
+                                    }}
+                                >
+                                    <Text style={styles.secondaryButtonText}>音声を共有</Text>
+                                </TouchableOpacity>
+                            </>
                         ) : null}
 
                         <TouchableOpacity style={styles.secondaryButton} onPress={handleReset}>
@@ -493,6 +512,9 @@ const styles = StyleSheet.create({
     },
     playButton: {
         backgroundColor: '#E0F2FE',
+    },
+    shareButton: {
+        backgroundColor: '#F0FDF4',
     },
     secondaryButtonText: {
         color: '#374151',

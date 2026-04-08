@@ -30,6 +30,15 @@ export default function TabLayout() {
                 }}
             />
             <Tabs.Screen
+                name="calendar"
+                options={{
+                    title: 'カレンダー',
+                    tabBarIcon: ({ color }) => (
+                        <Text style={{ fontSize: 20, color }}>📅</Text>
+                    ),
+                }}
+            />
+            <Tabs.Screen
                 name="qr-scan"
                 options={{
                     title: 'QRスキャン',
