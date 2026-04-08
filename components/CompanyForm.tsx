@@ -99,9 +99,12 @@ export function CompanyForm({ initialData, onSubmit, onCancel }: CompanyFormProp
             return;
         }
 
-        const normalizedUrl = normalizeNullable(myPageUrl);
+        let normalizedUrl = normalizeNullable(myPageUrl);
+        if (normalizedUrl && !/^https?:\/\//i.test(normalizedUrl)) {
+            normalizedUrl = `https://${normalizedUrl}`;
+        }
         if (!validateUrl(normalizedUrl)) {
-            Alert.alert('エラー', 'マイページURLは http:// または https:// で始まる形式で入力してください');
+            Alert.alert('エラー', 'マイページURLの形式が正しくありません');
             return;
         }
 

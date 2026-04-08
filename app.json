@@ -32,12 +32,6 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.shukatsumanager",
       "permissions": [
-        "RECORD_AUDIO",
-        "READ_CALENDAR",
-        "WRITE_CALENDAR",
-        "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_MICROPHONE",
-        "CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -45,7 +39,10 @@
         "android.permission.INTERNET",
         "android.permission.READ_CALENDAR",
         "android.permission.WRITE_CALENDAR",
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "web": {

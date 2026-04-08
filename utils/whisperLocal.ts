@@ -10,7 +10,7 @@ import { initWhisper as initWhisperRN, WhisperContext } from 'whisper.rn';
 
 const MODEL_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin';
 const MODEL_FILE_NAME = 'ggml-small.bin';
-const MODEL_MIN_SIZE = 60_000_000;
+const MODEL_MIN_SIZE = 460_000_000;
 
 let whisperContext: WhisperContext | null = null;
 let initializingPromise: Promise<void> | null = null;
@@ -114,14 +114,14 @@ export async function transcribeLocalAudio(audioUri: string): Promise<string> {
 
     const normalizedAudioUri = audioUri.startsWith('file://') ? audioUri.slice(7) : audioUri;
 
+    const prompt = '就職活動についての日本語音声';
+
     const { promise } = whisperContext.transcribe(normalizedAudioUri, {
         language: 'ja',
-        maxLen: 0,
         translate: false,
         beamSize: 5,
-        bestOf: 5,
         temperature: 0.0,
-        prompt: 'これは就職活動の面接メモです。自然な日本語として文字起こししてください。',
+        prompt,
     });
 
     const result = await promise;
@@ -129,7 +129,11 @@ export async function transcribeLocalAudio(audioUri: string): Promise<string> {
         throw new Error('Transcription failed or returned empty.');
     }
 
-    return result.result.trim();
+    let text = result.result.trim();
+    if (text.startsWith(prompt)) {
+        text = text.slice(prompt.length).trim();
+    }
+    return text;
 }
 
 export async function releaseWhisper(): Promise<void> {

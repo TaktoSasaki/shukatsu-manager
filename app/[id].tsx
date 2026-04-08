@@ -129,8 +129,11 @@ export default function CompanyDetailScreen() {
     }
 
     async function openMyPage(): Promise<void> {
-        const url = company?.myPageUrl;
+        let url = company?.myPageUrl;
         if (!url) return;
+        if (!/^https?:\/\//i.test(url)) {
+            url = `https://${url}`;
+        }
 
         try {
             const supported = await Linking.canOpenURL(url);

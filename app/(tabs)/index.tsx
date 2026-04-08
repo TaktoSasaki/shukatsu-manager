@@ -31,8 +31,10 @@ export default function HomeScreen() {
     const [sortType, setSortType] = useState<SortType>('manual');
     const [showSortModal, setShowSortModal] = useState(false);
     const isFirstRender = useRef(true);
+    const isReorderingRef = useRef(false);
 
     const loadCompanies = useCallback(async () => {
+        if (isReorderingRef.current) return;
         try {
             setCompanies(await getAllCompanies(sortType));
         } catch (error) {
@@ -62,17 +64,19 @@ export default function HomeScreen() {
         await loadCompanies();
     }
 
-    async function handleDragEnd({ data }: { data: Company[] }): Promise<void> {
-        const previousData = companies;
+    const handleDragEnd = useCallback(({ data }: { data: Company[] }) => {
+        isReorderingRef.current = true;
         setCompanies(data);
 
-        try {
-            await reorderCompanies(data.map((company) => company.id));
-        } catch (error) {
-            console.error('Failed to reorder companies:', error);
-            setCompanies(previousData);
-        }
-    }
+        reorderCompanies(data.map((company) => company.id))
+            .catch((error) => {
+                console.error('Failed to reorder companies:', error);
+                void loadCompanies();
+            })
+            .finally(() => {
+                isReorderingRef.current = false;
+            });
+    }, [loadCompanies]);
 
     const renderItem = useCallback(({ item, drag, isActive }: RenderItemParams<Company>) => (
         <TouchableOpacity
@@ -122,7 +126,7 @@ export default function HomeScreen() {
                     autoscrollThreshold={100}
                     autoscrollSpeed={200}
                     dragItemOverflow={false}
-                    containerStyle={{ flex: 1 }}
+                    containerStyle={styles.listContainer}
                     refreshControl={(
                         <RefreshControl
                             refreshing={refreshing}
@@ -190,6 +194,9 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#F9FAFB',
+    },
+    listContainer: {
+        flex: 1,
     },
     loadingContainer: {
         flex: 1,

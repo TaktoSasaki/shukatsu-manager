@@ -8,7 +8,9 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { CameraView, scanFromURLAsync, useCameraPermissions } from 'expo-camera';
+import * as Clipboard from 'expo-clipboard';
+import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -46,12 +48,20 @@ export default function QRScanScreen() {
         setScanRecords((prev) => [record, ...prev]);
 
         const isUrl = /^https?:\/\//i.test(data);
+        const copyAction = {
+            text: 'コピー',
+            onPress: async () => {
+                await Clipboard.setStringAsync(data);
+                setScanned(false);
+            },
+        };
         Alert.alert(
             'QRコードを読み取りました',
             data,
             isUrl
                 ? [
-                      { text: '閉じる', style: 'cancel', onPress: () => setScanned(false) },
+                      { text: '閉じる', style: 'cancel' as const, onPress: () => setScanned(false) },
+                      copyAction,
                       {
                           text: 'URLを開く',
                           onPress: async () => {
@@ -64,8 +74,30 @@ export default function QRScanScreen() {
                           },
                       },
                   ]
-                : [{ text: 'OK', onPress: () => setScanned(false) }],
+                : [
+                      { text: '閉じる', style: 'cancel' as const, onPress: () => setScanned(false) },
+                      copyAction,
+                  ],
         );
+    }
+
+    async function handlePickImage(): Promise<void> {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            quality: 1,
+        });
+        if (result.canceled || !result.assets[0]) return;
+
+        try {
+            const barcodes = await scanFromURLAsync(result.assets[0].uri, ['qr']);
+            if (barcodes.length === 0) {
+                Alert.alert('結果', '画像からQRコードを検出できませんでした');
+                return;
+            }
+            handleBarcodeScanned({ data: barcodes[0].data });
+        } catch {
+            Alert.alert('エラー', '画像の読み取りに失敗しました');
+        }
     }
 
     function handleClearHistory(): void {
@@ -119,6 +151,10 @@ export default function QRScanScreen() {
                 ) : null}
             </View>
 
+            <TouchableOpacity style={styles.pickImageButton} onPress={handlePickImage}>
+                <Text style={styles.pickImageButtonText}>画像からQRコードを読み取る</Text>
+            </TouchableOpacity>
+
             <View style={styles.historySection}>
                 <View style={styles.historyHeader}>
                     <Text style={styles.historyTitle}>スキャン履歴</Text>
@@ -134,26 +170,37 @@ export default function QRScanScreen() {
                 ) : (
                     <ScrollView style={styles.historyList}>
                         {scanRecords.map((record) => (
-                            <TouchableOpacity
-                                key={record.id}
-                                style={styles.historyItem}
-                                onPress={async () => {
-                                    if (/^https?:\/\//i.test(record.data)) {
-                                        try {
-                                            await Linking.openURL(record.data);
-                                        } catch {
-                                            Alert.alert('エラー', 'URLを開けませんでした');
+                            <View key={record.id} style={styles.historyItem}>
+                                <TouchableOpacity
+                                    style={styles.historyContent}
+                                    onPress={async () => {
+                                        if (/^https?:\/\//i.test(record.data)) {
+                                            try {
+                                                await Linking.openURL(record.data);
+                                            } catch {
+                                                Alert.alert('エラー', 'URLを開けませんでした');
+                                            }
                                         }
-                                    }
-                                }}
-                            >
-                                <Text style={styles.historyData} numberOfLines={2}>
-                                    {record.data}
-                                </Text>
-                                <Text style={styles.historyTime}>
-                                    {record.scannedAt.toLocaleTimeString('ja-JP')}
-                                </Text>
-                            </TouchableOpacity>
+                                    }}
+                                    onLongPress={async () => {
+                                        await Clipboard.setStringAsync(record.data);
+                                        Alert.alert('コピーしました', record.data);
+                                    }}
+                                >
+                                    <Text style={styles.historyData} numberOfLines={2}>
+                                        {record.data}
+                                    </Text>
+                                    <Text style={styles.historyTime}>
+                                        {record.scannedAt.toLocaleTimeString('ja-JP')}
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.deleteButton}
+                                    onPress={() => setScanRecords((prev) => prev.filter((r) => r.id !== record.id))}
+                                >
+                                    <Text style={styles.deleteButtonText}>✕</Text>
+                                </TouchableOpacity>
+                            </View>
                         ))}
                     </ScrollView>
                 )}
@@ -226,6 +273,19 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         borderRadius: 20,
     },
+    pickImageButton: {
+        marginHorizontal: 16,
+        marginTop: 12,
+        backgroundColor: '#EEF2FF',
+        paddingVertical: 12,
+        borderRadius: 10,
+        alignItems: 'center',
+    },
+    pickImageButtonText: {
+        color: '#4F46E5',
+        fontSize: 15,
+        fontWeight: '600',
+    },
     historySection: {
         flex: 1,
         padding: 16,
@@ -256,12 +316,28 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     historyItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: '#FFFFFF',
-        padding: 14,
         borderRadius: 10,
         marginBottom: 8,
         borderWidth: 1,
         borderColor: '#E5E7EB',
+    },
+    historyContent: {
+        flex: 1,
+        padding: 14,
+    },
+    deleteButton: {
+        paddingHorizontal: 14,
+        paddingVertical: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    deleteButtonText: {
+        fontSize: 14,
+        color: '#9CA3AF',
+        fontWeight: '600',
     },
     historyData: {
         fontSize: 14,
