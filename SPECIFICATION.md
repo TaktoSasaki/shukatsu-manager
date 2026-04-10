@@ -1,6 +1,6 @@
 # 就活管理 (Shukatsu Manager) 仕様書
 
-**バージョン**: 1.2.1  
+**バージョン**: 1.2.2  
 **最終更新**: 2026-04-10  
 **対象プラットフォーム**: iOS / Android (React Native + Expo)
 
