@@ -505,7 +505,7 @@ idle → recording → processing → result
 |---|---|
 | モデル | whisper.cpp ggml-small |
 | ダウンロードURL | `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin` |
-| 最小ファイルサイズ | 60 MB |
+| 最小ファイルサイズ | 460 MB |
 | 保存先 | `{documentDirectory}/models/ggml-small.bin` |
 
 #### Whisper パラメータ
@@ -513,18 +513,16 @@ idle → recording → processing → result
 | パラメータ | 値 |
 |---|---|
 | language | `ja` |
-| maxLen | 0（無制限） |
 | translate | false |
 | beamSize | 5 |
-| bestOf | 5 |
 | temperature | 0.0 |
-| prompt | 「これは就職活動の面接メモです。自然な日本語として文字起こししてください。」 |
+| prompt | 「就職活動についての日本語音声」 |
 
 #### 処理フロー
 
 1. 録音停止 → WAVファイル保存
 2. モデル未初期化の場合:
-   - モデルファイルの存在チェック（60MB以上）
+   - モデルファイルの存在チェック（460MB以上）
    - 不完全な場合は削除して再ダウンロード
    - ダウンロード進捗をUIに表示
    - WhisperContext を初期化（シングルトン）
@@ -538,6 +536,7 @@ idle → recording → processing → result
 - 「保存する」ボタン（変更がある場合のみ有効、保存済み時は「保存済み」表示）
 - 「全文をコピー」ボタン
 - 「録音を再生」ボタン（録音ファイルがある場合、再生中は「再生中...」表示で無効化）
+- 「音声を共有」ボタン（録音ファイルがある場合、`expo-sharing` でWAVファイルを共有）
 - 「やり直す」ボタン（確認ダイアログ「文字起こし結果を破棄して、録音をやり直しますか？」、破棄時にDBからも文字起こしを削除してidle状態に戻る）
 
 ---
@@ -549,6 +548,7 @@ idle → recording → processing → result
 - 上部: カメラプレビュー（高さ280px）
   - 中央にスキャンフレーム（200×200px、紫ボーダー）
   - ヒントテキスト: 「QRコードを枠内に合わせてください」
+- 中部: 「画像からQRコードを読み取る」ボタン
 - 下部: スキャン履歴リスト
 
 ### 9.2 スキャン動作
@@ -680,7 +680,7 @@ idle → recording → processing → result
 ### 12.2 ドラッグ&ドロップ
 
 - 手動順選択時のみ有効
-- 長押し（200ms）で開始、触覚フィードバック（Light Impact）
+- 長押し（200ms）で開始、触覚フィードバック（Heavy Impact）
 - ドラッグ中のカードは `scale: 1.02`, `opacity: 0.9`
 - ドロップ後にトランザクションで全企業の `sortOrder` を一括更新
 - 楽観的UI更新（失敗時はロールバック）
@@ -694,7 +694,7 @@ idle → recording → processing → result
 | フィールド | ルール | エラーメッセージ |
 |---|---|---|
 | 企業名 | trim後に空でないこと | 「企業名を入力してください」 |
-| マイページURL | null または `new URL()` でパース可能かつ http(s) プロトコルであること | 「マイページURLは http:// または https:// で始まる形式で入力してください」 |
+| マイページURL | null または `new URL()` でパース可能かつ http(s) プロトコルであること。`http(s)://` なしの入力時は `https://` を自動補完 | 「マイページURLの形式が正しくありません」 |
 | 企業数上限 | 5社まで | 「企業の登録上限（5社）に達しました」 |
 
 ### データ正規化
