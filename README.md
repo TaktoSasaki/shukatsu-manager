@@ -1,6 +1,6 @@
 # 就活管理 (Shukatsu Manager)
 
-**Version 1.1.1** | [更新履歴](./CHANGELOG.md)
+**Version 1.2.1** | [更新履歴](./CHANGELOG.md)
 
 就職活動の応募先、選考履歴、面接メモを 1 つのアプリで管理するための Expo / React Native アプリです。
 
@@ -16,6 +16,7 @@
 - 面接音声の録音とローカル Whisper による文字起こし
 - ステータス順、面接日順、手動順での並び替え
 - カスタムステータスの追加
+- アプリ内カレンダーで面接予定を一覧表示
 
 ## 技術スタック
 
@@ -26,10 +27,12 @@
 | DB | expo-sqlite |
 | 通知 | expo-notifications |
 | カレンダー | expo-calendar |
-| QR読み取り | expo-camera |
+| QR読み取り | expo-camera, expo-image-picker |
 | 録音 | react-native-audio-record, expo-av |
 | Android 背景録音 | react-native-background-actions |
 | 文字起こし | whisper.rn |
+| ドラッグ&ドロップ | react-native-draggable-flatlist |
+| ファイル共有 | expo-sharing |
 
 ## 重要な前提
 
@@ -128,6 +131,7 @@ app/
   (tabs)/
     _layout.tsx        タブレイアウト (Tabs)
     index.tsx          企業一覧タブ
+    calendar.tsx       カレンダータブ
     qr-scan.tsx        QRスキャンタブ
   add.tsx              企業追加画面 (Modal)
   [id].tsx             企業詳細画面
@@ -187,7 +191,7 @@ types/
 | companyId | string | 企業ID |
 | eventType | string | イベント種別 |
 | eventDate | string \| null | 実施日 (`YYYY-MM-DD`) |
-| result | string | `結果待ち` / `合格` / `不合格` |
+| result | string | `結果待ち` / `通過` / `不通過` |
 | notes | string \| null | メモ |
 
 ## セキュリティ上の注意
