@@ -92,7 +92,7 @@ export default function HomeScreen() {
     }, [loadCompanies]);
 
     const handleDragBegin = useCallback(() => {
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     }, []);
 
     const commitDelete = useCallback(async (company: Company) => {
@@ -119,7 +119,7 @@ export default function HomeScreen() {
         setCompanies(newData);
         setSnackbar({ company });
 
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
         const timer = setTimeout(() => {
             void commitDelete(company);
